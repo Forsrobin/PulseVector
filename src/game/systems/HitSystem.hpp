@@ -16,6 +16,12 @@ public:
     void fixedUpdate(entt::registry& registry, sf::Time dt) override;
     void render(entt::registry& registry, float interpolation) override;
 
+    std::optional<int> getDirectionForKey(sf::Keyboard::Key key) const {
+        auto it = m_keyToDirection.find(key);
+        if (it != m_keyToDirection.end()) return it->second;
+        return std::nullopt;
+    }
+
 private:
     void onKeyEvent(const engine::core::KeyEvent& event);
     

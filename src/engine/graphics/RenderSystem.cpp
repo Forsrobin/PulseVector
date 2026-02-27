@@ -40,6 +40,7 @@ void RenderSystem::render(entt::registry& registry, float interpolation) {
 
             if (renderable.texture) {
                 sf::Sprite sprite(*renderable.texture, renderable.textureRect);
+                sprite.setOrigin(renderable.origin);
                 sprite.setPosition(transform.position); 
                 sprite.setRotation(sf::degrees(transform.rotation));
                 sprite.setScale(transform.scale);

@@ -30,7 +30,8 @@ PostProcessManager::PostProcessManager(uint32_t width, uint32_t height)
         {"shaders/blur.frag", 0},
         {"shaders/bloom_combine.frag", 0},
         {"shaders/chromatic_aberration.frag", 0},
-        {"shaders/audio_reactive_bg.frag", 0}
+        {"shaders/audio_reactive_bg.frag", 0},
+        {"shaders/radial_blur.frag", 0}
     };
 
     m_shadersLoaded = loadShaders();
@@ -42,8 +43,9 @@ bool PostProcessManager::loadShaders() {
     bool s3 = m_bloomCombineShader.loadFromFile("shaders/default.vert", "shaders/bloom_combine.frag");
     bool s4 = m_chromaticAberrationShader.loadFromFile("shaders/default.vert", "shaders/chromatic_aberration.frag");
     bool s5 = m_backgroundShader.loadFromFile("shaders/default.vert", "shaders/audio_reactive_bg.frag");
+    bool s6 = m_radialBlurShader.loadFromFile("shaders/default.vert", "shaders/radial_blur.frag");
 
-    bool allLoaded = s1 && s2 && s3 && s4 && s5;
+    bool allLoaded = s1 && s2 && s3 && s4 && s5 && s6;
 
     if (allLoaded) {
         sf::Vector2f res(static_cast<float>(m_width), static_cast<float>(m_height));
@@ -62,6 +64,9 @@ bool PostProcessManager::loadShaders() {
         m_chromaticAberrationShader.setUniform("resolution", res);
 
         m_backgroundShader.setUniform("resolution", res);
+
+        m_radialBlurShader.setUniform("u_texture", sf::Shader::CurrentTexture);
+        m_radialBlurShader.setUniform("resolution", res);
 
         // Update timestamps
         for (auto& file : m_shaderFiles) {
@@ -127,6 +132,11 @@ void PostProcessManager::update(sf::Time dt) {
             m_shakeOffset.x = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.f - 1.f) * currentIntensity;
             m_shakeOffset.y = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.f - 1.f) * currentIntensity;
         }
+    }
+
+    if (m_radialStrength > 0.f) {
+        m_radialStrength -= dt.asSeconds() * 2.0f; // Rapid decay
+        if (m_radialStrength < 0.f) m_radialStrength = 0.f;
     }
 }
 
@@ -196,11 +206,25 @@ void PostProcessManager::render(sf::RenderTarget& target) {
         applyExternalBlur();
         sf::Sprite finalSprite(m_externalBlurTexture.getTexture());
         finalSprite.setPosition(m_shakeOffset);
-        target.draw(finalSprite);
+        
+        if (m_radialStrength > 0.01f) {
+            m_radialBlurShader.setUniform("center", m_radialCenter);
+            m_radialBlurShader.setUniform("strength", m_radialStrength);
+            target.draw(finalSprite, &m_radialBlurShader);
+        } else {
+            target.draw(finalSprite);
+        }
     } else {
         sf::Sprite finalSprite(m_pingPongTextures[1].getTexture());
         finalSprite.setPosition(m_shakeOffset);
-        target.draw(finalSprite);
+        
+        if (m_radialStrength > 0.01f) {
+            m_radialBlurShader.setUniform("center", m_radialCenter);
+            m_radialBlurShader.setUniform("strength", m_radialStrength);
+            target.draw(finalSprite, &m_radialBlurShader);
+        } else {
+            target.draw(finalSprite);
+        }
     }
 }
 

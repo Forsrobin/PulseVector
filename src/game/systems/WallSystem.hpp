@@ -1,22 +1,22 @@
 #pragma once
 
 #include "engine/ecs/System.hpp"
-#include "engine/audio/AudioCore.hpp"
-#include "engine/utils/ObjectPool.hpp"
+#include "engine/core/Application.hpp"
+#include <SFML/Graphics/RenderTarget.hpp>
 
 namespace game::systems {
 
-class ApproachSystem : public engine::ecs::ISystem {
+class WallSystem : public engine::ecs::ISystem {
 public:
-    explicit ApproachSystem(engine::audio::AudioCore& audioCore, engine::utils::ObjectPool& pool);
+    explicit WallSystem(engine::core::Application& app);
 
     void update(entt::registry& registry, sf::Time dt) override;
     void fixedUpdate(entt::registry& registry, sf::Time dt) override;
     void render(entt::registry& registry, float interpolation) override;
 
 private:
-    engine::audio::AudioCore& m_audioCore;
-    engine::utils::ObjectPool& m_pool;
+    engine::core::Application& m_app;
+    sf::Vector2f m_center{640.f, 360.f};
 };
 
 } // namespace game::systems

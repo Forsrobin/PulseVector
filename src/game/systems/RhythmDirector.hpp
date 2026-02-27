@@ -21,8 +21,9 @@ private:
     beatmap::Beatmap m_beatmap;
     std::shared_ptr<sf::Texture> m_spriteMap;
     
-    float m_approachTime{1.5f}; // Seconds before node time to spawn entity
+    float m_approachTime{2.5f}; // Seconds before node time to spawn entity
     size_t m_nextNodeIndex{0};
+    float m_wallTimer{0.f};
 };
 
 } // namespace game::systems

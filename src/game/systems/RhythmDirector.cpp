@@ -1,6 +1,7 @@
 #include "RhythmDirector.hpp"
 #include "../components/HitObject.hpp"
 #include "../components/Approach.hpp"
+#include "../components/Wall.hpp"
 #include "engine/graphics/components/Transform.hpp"
 #include "engine/graphics/components/Renderable.hpp"
 #include <algorithm>
@@ -34,7 +35,13 @@ void RhythmDirector::update(entt::registry& registry, sf::Time dt) {
             
             registry.emplace<engine::graphics::components::Transform>(entity, sf::Vector2f(node.x, node.y));
             
-            registry.emplace<components::HitObject>(entity, node.timeSeconds, spawnTime, node.type, node.direction);
+            auto& hitObj = registry.emplace<components::HitObject>(entity, node.timeSeconds, spawnTime, node.type, node.direction);
+            if (node.type == beatmap::NodeType::Slider) {
+                hitObj.durationSeconds = node.durationSeconds;
+                for (const auto& p : node.curvePoints) {
+                    hitObj.sliderPoints.push_back({p.first, p.second});
+                }
+            }
 
             // Add approach component for scaling and spline animation
             auto& approach = registry.emplace<components::Approach>(entity, spawnTime, node.timeSeconds);
@@ -73,9 +80,8 @@ void RhythmDirector::update(entt::registry& registry, sf::Time dt) {
             if (m_spriteMap) {
                 engine::graphics::components::Renderable renderable;
                 renderable.texture = m_spriteMap;
-                // (0,0) Up, (0,1) Right, (0,2) Down, (0,3) Left
-                // User said: (0,0) => up, (0,1) => right... if Row 0, Col X:
                 renderable.textureRect = sf::IntRect({node.direction * 32, 0}, {32, 32});
+                renderable.origin = {16.f, 16.f}; // Center of 32x32 sprite
                 registry.emplace<engine::graphics::components::Renderable>(entity, renderable);
             }
 
@@ -83,6 +89,25 @@ void RhythmDirector::update(entt::registry& registry, sf::Time dt) {
         } else {
             break;
         }
+    }
+
+    // Task: Spawn rhythmic walls (Bullet Hell)
+    float beatInterval = 60.f / m_beatmap.baseBpm;
+    if (currentAudioTime > m_wallTimer + beatInterval * 4.f) {
+        m_wallTimer = currentAudioTime;
+        
+        // Spawn a wall with a gap
+        auto wallEntity = registry.create();
+        float gapAngle = static_cast<float>(rand() % 360);
+        float sweep = 300.f; // 60 degree gap (360 - 300)
+        
+        registry.emplace<components::Wall>(wallEntity, 
+            1000.f, // Start further out
+            250.f,  // Faster speed to increase spatial gap
+            gapAngle + 30.f, // Start angle
+            sweep,
+            true
+        );
     }
 }
 

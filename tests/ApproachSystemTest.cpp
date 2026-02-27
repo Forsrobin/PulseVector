@@ -10,8 +10,9 @@
 TEST(ApproachSystemTest, ScalingLogic) {
     entt::registry registry;
     engine::audio::AudioCore audioCore; // Will not be playing
+    engine::utils::ObjectPool pool(registry);
     
-    game::systems::ApproachSystem system(audioCore);
+    game::systems::ApproachSystem system(audioCore, pool);
     
     auto entity = registry.create();
     registry.emplace<engine::graphics::components::Transform>(entity);

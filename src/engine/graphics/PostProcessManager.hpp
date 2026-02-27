@@ -30,6 +30,7 @@ public:
     void setChromaticAberrationAmount(float amount) { m_chromaticAmount = amount; }
 
     void setBlurStrength(float strength) { m_blurStrength = strength; }
+    void setRadialBlur(sf::Vector2f center, float strength) { m_radialCenter = center; m_radialStrength = strength; }
 
     void updateAudioData(float amplitude, float bass, const std::vector<float>& fft);
 
@@ -54,6 +55,7 @@ private:
     sf::Shader m_bloomCombineShader;
     sf::Shader m_chromaticAberrationShader;
     sf::Shader m_backgroundShader;
+    sf::Shader m_radialBlurShader;
 
     bool m_bloomEnabled{true};
     float m_bloomThreshold{0.7f};
@@ -63,6 +65,8 @@ private:
     float m_chromaticAmount{0.005f};
 
     float m_blurStrength{0.f};
+    float m_radialStrength{0.f};
+    sf::Vector2f m_radialCenter{640.f, 360.f};
 
     float m_amplitude{0.f};
     float m_bass{0.f};

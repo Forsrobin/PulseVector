@@ -9,9 +9,11 @@
 #include "../systems/ScoringSystem.hpp"
 #include "../systems/FeedbackSystem.hpp"
 #include "../systems/ApproachSystem.hpp"
+#include "../systems/WallSystem.hpp"
 #include "../components/HitObject.hpp"
 #include "../components/Approach.hpp"
 #include "../beatmap/BeatmapParser.hpp"
+#include "engine/utils/Spline.hpp"
 #include <fmt/core.h>
 
 namespace game::states {
@@ -22,6 +24,7 @@ MainScene::MainScene(engine::core::Application& app, beatmap::Beatmap map)
 
 void MainScene::onInitialize(entt::registry& registry) {
     fmt::print("Main Scene Initialized.\\n");
+    m_app.getWindow().setMouseCursorVisible(false);
 
     // Task 8: Pre-allocate memory for common components during level load
     // Note: In EnTT 3.x, use .storage<T>().reserve(n)
@@ -41,7 +44,8 @@ void MainScene::onInitialize(entt::registry& registry) {
     addSystem(std::make_unique<systems::ScoringSystem>(m_app.getEventBus()));
     addSystem(std::make_unique<systems::HitSystem>(m_app.getAudioCore(), m_app.getEventBus()));
     addSystem(std::make_unique<systems::FeedbackSystem>(m_app.getEventBus(), m_app.getPostProcessManager(), m_particlePool, spriteMap, defaultFont));
-    addSystem(std::make_unique<systems::ApproachSystem>(m_app.getAudioCore()));
+    addSystem(std::make_unique<systems::ApproachSystem>(m_app.getAudioCore(), m_particlePool));
+    addSystem(std::make_unique<systems::WallSystem>(m_app));
     
     // Rhythm Director with the actual beatmap and sprite map
     addSystem(std::make_unique<systems::RhythmDirector>(m_app.getAudioCore(), m_beatmap, spriteMap));
@@ -206,9 +210,102 @@ void MainScene::render(entt::registry& registry, float interpolation) {
     innerCircle.setOrigin({innerRadius, innerRadius});
     innerCircle.setPosition({640.f, 360.f});
     innerCircle.setFillColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(100 * restartAlphaMult)));
-    target.draw(innerCircle);
+    // Draw slider paths
+    auto sliderView = registry.view<components::HitObject>();
+    for (auto entity : sliderView) {
+        const auto& hitObj = sliderView.get<components::HitObject>(entity);
+        if (hitObj.type == beatmap::NodeType::Slider && !hitObj.sliderPoints.empty()) {
+            size_t points = 40;
+            // Draw multiple passes for a "glow" and "thickness" effect
+            float baseThickness = 4.f + amplitude * 10.f; // Pulses with music
+            
+            // Outer glow
+            sf::VertexArray glowPath(sf::PrimitiveType::TriangleStrip, points * 2);
+            // Inner core
+            sf::VertexArray corePath(sf::PrimitiveType::TriangleStrip, points * 2);
+
+            for (size_t i = 0; i < points; ++i) {
+                float t = static_cast<float>(i) / (points - 1);
+                sf::Vector2f p = engine::utils::Spline::interpolate(hitObj.sliderPoints, t);
+                
+                // Calculate normal for thickness
+                sf::Vector2f pNext = engine::utils::Spline::interpolate(hitObj.sliderPoints, std::min(t + 0.01f, 1.0f));
+                sf::Vector2f dir = pNext - p;
+                float len = std::sqrt(dir.x*dir.x + dir.y*dir.y);
+                sf::Vector2f normal(0.f, 0.f);
+                if (len > 0) normal = {-dir.y / len, dir.x / len};
+
+                // Glow Pass
+                float glowWidth = baseThickness * 3.0f;
+                glowPath[i*2].position = p + normal * glowWidth;
+                glowPath[i*2].color = sf::Color(0, 255, 255, 40);
+                glowPath[i*2+1].position = p - normal * glowWidth;
+                glowPath[i*2+1].color = sf::Color(0, 255, 255, 40);
+
+                // Core Pass
+                float coreWidth = baseThickness;
+                corePath[i*2].position = p + normal * coreWidth;
+                corePath[i*2].color = sf::Color(255, 255, 255, 180);
+                corePath[i*2+1].position = p - normal * coreWidth;
+                corePath[i*2+1].color = sf::Color(255, 255, 255, 180);
+            }
+            target.draw(glowPath);
+            target.draw(corePath);
+        }
+    }
+
+    // Osu-style Approach Circles
+    auto approachView = registry.view<engine::graphics::components::Transform, components::Approach>();
+    
+    // Find the next note to hit for highlighting
+    entt::entity nextEntity = entt::null;
+    float minTime = 99999.f;
+    float currentAudioTime = m_app.getAudioCore().getSampleTime().asSeconds();
+
+    for (auto entity : approachView) {
+        const auto& approach = approachView.get<components::Approach>(entity);
+        if (approach.targetTimeSeconds > currentAudioTime && approach.targetTimeSeconds < minTime) {
+            minTime = approach.targetTimeSeconds;
+            nextEntity = entity;
+        }
+    }
+
+    for (auto entity : approachView) {
+        const auto& transform = approachView.get<engine::graphics::components::Transform>(entity);
+        const auto& approach = approachView.get<components::Approach>(entity);
+
+        // Shrinking ring
+        float circleScale = 1.0f + (1.0f - approach.approachFactor) * 3.0f; // From 4.0 to 1.0
+        float baseRadius = 40.f;
+        sf::CircleShape approachCircle(baseRadius * circleScale);
+        approachCircle.setOrigin({baseRadius * circleScale, baseRadius * circleScale});
+        approachCircle.setPosition(transform.position);
+        approachCircle.setFillColor(sf::Color::Transparent);
+        
+        // Highlight next note
+        if (entity == nextEntity) {
+            approachCircle.setOutlineThickness(4.f);
+            approachCircle.setOutlineColor(sf::Color::Cyan);
+        } else {
+            approachCircle.setOutlineThickness(2.f);
+            approachCircle.setOutlineColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(approach.approachFactor * 255.f)));
+        }
+        
+        target.draw(approachCircle);
+    }
 
     Scene::render(registry, interpolation);
+
+    // Custom Glowing Cursor
+    auto mousePos = m_app.getInputSystem().getMousePosition();
+    float cursorRadius = 15.f + amplitude * 10.f;
+    sf::CircleShape cursor(cursorRadius);
+    cursor.setOrigin({cursorRadius, cursorRadius});
+    cursor.setPosition(mousePos);
+    cursor.setFillColor(sf::Color(255, 255, 255, 200));
+    cursor.setOutlineThickness(3.f);
+    cursor.setOutlineColor(sf::Color::Cyan);
+    target.draw(cursor);
 
     // Darken background during restart
     if (m_restartTimer > 0.f) {

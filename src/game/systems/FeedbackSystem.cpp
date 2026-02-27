@@ -60,16 +60,27 @@ void FeedbackSystem::update(entt::registry& registry, sf::Time dt) {
 void FeedbackSystem::onHitEvent(const engine::core::HitEvent& event) {
     if (!m_registry) return;
 
-    // Trigger screen shake on successful hits
+    // Trigger screen shake and radial blur on successful hits (Thunk System)
     if (event.rating != engine::core::HitRating::Miss) {
         float shakeAmount = 0.f;
+        float blurStrength = 0.f;
         switch (event.rating) {
-            case engine::core::HitRating::Perfect: shakeAmount = 8.f; break;
-            case engine::core::HitRating::Great:   shakeAmount = 4.f; break;
-            case engine::core::HitRating::Good:    shakeAmount = 2.f; break;
+            case engine::core::HitRating::Perfect: 
+                shakeAmount = 15.f; 
+                blurStrength = 0.15f; 
+                break;
+            case engine::core::HitRating::Great:   
+                shakeAmount = 8.f; 
+                blurStrength = 0.08f; 
+                break;
+            case engine::core::HitRating::Good:    
+                shakeAmount = 4.f; 
+                blurStrength = 0.04f; 
+                break;
             default: break;
         }
         m_postProcess.addShake(shakeAmount, sf::seconds(0.15f));
+        m_postProcess.setRadialBlur(event.position, blurStrength);
     }
 
     // rating visual
