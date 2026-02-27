@@ -1,0 +1,43 @@
+# Build directory
+build/
+bin/
+out/
+
+# Conan
+conan.lock
+graph_info.json
+conanbuildinfo.*
+conan_toolchain.cmake
+conanrun.sh
+conanbuild.sh
+deactivate_conanrun.sh
+deactivate_conanbuild.sh
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+
+# Editor/IDE
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Shaders / Symlinks
+# These are symlinked into build, but some editors create metadata
+.cache/
+
+# Audio/Large Assets (Optional, but common if you use a CDN)
+# assets/audio/*.mp3
+# !assets/audio/hover.mp3

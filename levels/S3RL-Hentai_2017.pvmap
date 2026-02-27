@@ -1,0 +1,30 @@
+[Version]
+1
+
+[Metadata]
+Title: Hentai 2017
+Artist: S3RL
+AudioPath: S3RL-Hentai_2017.mp3
+BaseBPM: 175
+Offset: 0.1
+
+[Timing]
+// timeSeconds, bpm
+0.0, 175
+
+[Events]
+// timeSeconds, type, parameters...
+10.0, Flash, white
+30.0, Shake, 2.0
+
+[Nodes]
+// timeSeconds, type(0=HitCircle, 1=Slider), x, y, direction, [duration, curveX|curveY...]
+1.0, 0, 640, 360, 0
+1.5, 0, 800, 360, 1
+2.0, 0, 800, 500, 2
+2.5, 0, 640, 500, 3
+3.0, 1, 400, 360, 0, 1.0, 400|500, 300|500, 300|360
+5.0, 0, 100, 100, 0
+5.5, 0, 200, 200, 1
+6.0, 0, 300, 300, 2
+6.5, 0, 400, 400, 3
