@@ -23,6 +23,9 @@ void PulseVectorGame::onInitialize() {
     getFontManager().load("default", "assets/fonts/Jersey25-Regular.ttf");
     getSoundManager().load("hover", "assets/audio/hover.mp3");
 
+    // Initialize global volume
+    setVolume(80.f); 
+
     // Start with TitleScene
     setScene(std::make_unique<states::TitleScene>(*this));
 }

@@ -46,13 +46,22 @@ bool PostProcessManager::loadShaders() {
     bool allLoaded = s1 && s2 && s3 && s4 && s5;
 
     if (allLoaded) {
+        sf::Vector2f res(static_cast<float>(m_width), static_cast<float>(m_height));
+
         // Configure shaders
         m_bloomExtractShader.setUniform("u_texture", sf::Shader::CurrentTexture);
+        m_bloomExtractShader.setUniform("resolution", res);
+
         m_blurShader.setUniform("u_texture", sf::Shader::CurrentTexture);
-        m_blurShader.setUniform("resolution", sf::Vector2f(static_cast<float>(m_width), static_cast<float>(m_height)));
+        m_blurShader.setUniform("resolution", res);
+        
         m_bloomCombineShader.setUniform("u_texture", sf::Shader::CurrentTexture);
+        m_bloomCombineShader.setUniform("resolution", res);
+        
         m_chromaticAberrationShader.setUniform("u_texture", sf::Shader::CurrentTexture);
-        m_backgroundShader.setUniform("resolution", sf::Vector2f(static_cast<float>(m_width), static_cast<float>(m_height)));
+        m_chromaticAberrationShader.setUniform("resolution", res);
+
+        m_backgroundShader.setUniform("resolution", res);
 
         // Update timestamps
         for (auto& file : m_shaderFiles) {

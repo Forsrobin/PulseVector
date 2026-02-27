@@ -1,5 +1,7 @@
 #include "MenuScene.hpp"
 #include "MainScene.hpp"
+#include "TitleScene.hpp"
+#include "SettingsScene.hpp"
 #include "engine/core/Application.hpp"
 #include "engine/graphics/RenderSystem.hpp"
 #include "../beatmap/BeatmapParser.hpp"
@@ -17,7 +19,9 @@ void MenuScene::onInitialize(entt::registry& registry) {
     if (bgTex) {
         m_backgroundSprite.emplace(*bgTex);
         sf::Vector2u texSize = bgTex->getSize();
-        m_backgroundSprite->setScale({1280.f / texSize.x, 720.f / texSize.y});
+        if (texSize.x > 0 && texSize.y > 0) {
+            m_backgroundSprite->setScale({1280.f / texSize.x, 720.f / texSize.y});
+        }
         m_backgroundSprite->setColor(sf::Color(255, 255, 255, 120)); // Dim for menu readability
     }
 
@@ -40,10 +44,19 @@ void MenuScene::onInitialize(entt::registry& registry) {
     m_levels.push_back({"Hentai 2017", "S3RL", "levels/S3RL-Hentai_2017.pvmap", {}});
     m_levels.push_back({"MOCK SONG 1", "Artist A", "levels/nonexistent1.pvmap", {}});
     m_levels.push_back({"MOCK SONG 2", "Artist B", "levels/nonexistent2.pvmap", {}});
-    m_levels.push_back({"MOCK SONG 3", "Artist C", "levels/nonexistent3.pvmap", {}});
-    m_levels.push_back({"MOCK SONG 4", "Artist D", "levels/nonexistent4.pvmap", {}});
+    m_levels.push_back({"SETTINGS", "Configure", "SETTINGS", {}});
 
     m_visualStates.resize(m_levels.size());
+
+    if (font) {
+        m_homeText.emplace(*font, "Home");
+        m_homeText->setCharacterSize(40);
+        m_homeText->setFillColor(sf::Color::White);
+        auto homeBounds = m_homeText->getLocalBounds();
+        m_homeText->setOrigin({0.f, homeBounds.size.y / 2.f});
+        m_homeText->setPosition({50.f, 670.f});
+        m_homeBounds = sf::FloatRect({50.f, 670.f - homeBounds.size.y/2.f}, homeBounds.size);
+    }
 }
 
 void MenuScene::update(entt::registry& registry, sf::Time dt) {
@@ -85,8 +98,26 @@ void MenuScene::update(entt::registry& registry, sf::Time dt) {
         enterPressed = false;
     }
 
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) {
+        m_app.transitionToScene(std::make_unique<TitleScene>(m_app));
+    }
+
     // Mouse Interaction
     auto mousePos = m_app.getInputSystem().getMousePosition();
+    
+    // Home button check
+    if (m_homeBounds.contains(mousePos)) {
+        if (m_homeText && m_homeText->getFillColor() != sf::Color::Cyan) {
+            if (m_hoverSound) m_hoverSound->play();
+            m_homeText->setFillColor(sf::Color::Cyan);
+        }
+        if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
+            m_app.transitionToScene(std::make_unique<TitleScene>(m_app));
+        }
+    } else {
+        if (m_homeText) m_homeText->setFillColor(sf::Color::White);
+    }
+
     for (int i = 0; i < static_cast<int>(m_levels.size()); ++i) {
         if (m_levels[i].bounds.contains(mousePos)) {
             if (m_selectedIndex != i) {
@@ -111,6 +142,11 @@ void MenuScene::update(entt::registry& registry, sf::Time dt) {
 }
 
 void MenuScene::loadLevel(const std::string& mapPath) {
+    if (mapPath == "SETTINGS") {
+        m_app.transitionToScene(std::make_unique<SettingsScene>(m_app));
+        return;
+    }
+
     auto map = game::beatmap::BeatmapParser::parse(mapPath);
     if (map) {
         // Correct the audio path relative to the map
@@ -123,7 +159,7 @@ void MenuScene::loadLevel(const std::string& mapPath) {
 
         m_app.transitionToScene(std::make_unique<MainScene>(m_app, std::move(*map)), sf::seconds(1.0f));
     } else {
-        fmt::print(stderr, "Failed to load map: {}\\n", mapPath);
+        fmt::print(stderr, "Failed to load map: {}\n", mapPath);
     }
 }
 
@@ -189,6 +225,10 @@ void MenuScene::render(entt::registry& registry, float interpolation) {
         }
         
         target.draw(*m_levelText);
+    }
+
+    if (m_homeText) {
+        target.draw(*m_homeText);
     }
 }
 

@@ -3,6 +3,7 @@
 #include "engine/core/Scene.hpp"
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Sprite.hpp>
+#include <SFML/Audio/Sound.hpp>
 #include <optional>
 
 namespace engine::core {
@@ -22,7 +23,17 @@ private:
     engine::core::Application& m_app;
     std::optional<sf::Sprite> m_backgroundSprite;
     std::optional<sf::Text> m_titleText;
-    std::optional<sf::Text> m_promptText;
+    std::optional<sf::Sound> m_hoverSound;
+    
+    struct MenuOption {
+        std::string label;
+        sf::FloatRect bounds;
+        float scale{1.0f};
+        float offset{0.f};
+    };
+    std::vector<MenuOption> m_options;
+    int m_selectedIndex{0};
+
     float m_pulsateTimer{0.f};
 
     struct Decoration {

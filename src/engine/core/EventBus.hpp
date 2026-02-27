@@ -29,6 +29,10 @@ public:
         }
     }
 
+    void clear() {
+        m_subscribers.clear();
+    }
+
 private:
     using InternalCallback = std::function<void(const void*)>;
     std::unordered_map<std::type_index, std::vector<InternalCallback>> m_subscribers;

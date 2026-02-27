@@ -40,6 +40,9 @@ public:
 
     sf::RenderTarget& getRenderTarget();
 
+    float getVolume() const { return m_volume; }
+    void setVolume(float volume);
+
 protected:
     virtual void onInitialize() = 0;
     virtual void onUpdate(sf::Time dt) = 0;
@@ -72,6 +75,8 @@ private:
     sf::Time m_transitionTimer{sf::Time::Zero};
     sf::Time m_transitionDuration{sf::Time::Zero};
     bool m_isTransitioning{false};
+
+    float m_volume{100.f};
 };
 
 } // namespace engine::core

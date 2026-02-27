@@ -64,6 +64,19 @@ void MainScene::onInitialize(entt::registry& registry) {
         this->m_isGameOver = true;
     });
 
+    m_app.getEventBus().subscribe<engine::core::KeyEvent>([this](const auto& event) {
+        if (event.key == sf::Keyboard::Key::R) {
+            this->m_isRestarting = event.pressed;
+            if (!event.pressed) {
+                // If we were auto-restarting from game over, keep it.
+                // But if it was a manual hold, reset timer if released early.
+                if (!this->m_isGameOver) {
+                    // Handled in update now
+                }
+            }
+        }
+    });
+
     m_backgroundDim.setSize({1280.f, 720.f});
     m_backgroundDim.setFillColor(sf::Color(0, 0, 0, 150));
 
@@ -108,20 +121,17 @@ void MainScene::update(entt::registry& registry, sf::Time dt) {
     float elapsed = dt.asSeconds();
 
     // Hold R to Restart logic
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R) || m_isGameOver) {
-        m_isRestarting = true;
+    if (m_isRestarting || m_isGameOver) {
         m_restartTimer += elapsed;
 
         if (m_restartTimer >= 1.0f) {
             m_shouldRestart = true;
         }
     } else {
-        if (m_isRestarting) {
+        // Decay if not pressing and not game over
+        if (m_restartTimer > 0.f) {
             m_restartTimer -= elapsed * 2.0f;
-            if (m_restartTimer <= 0.f) {
-                m_restartTimer = 0.f;
-                m_isRestarting = false;
-            }
+            if (m_restartTimer < 0.f) m_restartTimer = 0.f;
         }
     }
 

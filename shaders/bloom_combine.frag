@@ -8,6 +8,7 @@ out vec4 fragColor;
 uniform sampler2D u_texture;
 uniform sampler2D bloomTexture;
 uniform float intensity;
+uniform vec2 resolution;
 
 void main()
 {

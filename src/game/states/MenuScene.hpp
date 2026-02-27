@@ -38,6 +38,7 @@ private:
     std::optional<sf::Sprite> m_backgroundSprite;
     std::vector<MenuLevel> m_levels;
     std::optional<sf::Text> m_levelText;
+    std::optional<sf::Text> m_homeText;
     std::optional<sf::Sound> m_hoverSound;
     int m_selectedIndex{0};
     int m_hoveredIndex{-1};
@@ -47,6 +48,7 @@ private:
         float offset{0.f};
     };
     std::vector<VisualState> m_visualStates;
+    sf::FloatRect m_homeBounds;
 };
 
 } // namespace game::states

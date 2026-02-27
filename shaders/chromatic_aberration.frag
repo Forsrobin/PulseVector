@@ -7,6 +7,7 @@ out vec4 fragColor;
 
 uniform sampler2D u_texture;
 uniform float amount;
+uniform vec2 resolution;
 
 void main()
 {

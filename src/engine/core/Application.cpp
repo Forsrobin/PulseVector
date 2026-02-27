@@ -1,5 +1,6 @@
 #include "Application.hpp"
 #include <fmt/core.h>
+#include <algorithm>
 
 namespace engine::core {
 
@@ -55,6 +56,11 @@ sf::RenderTarget& Application::getRenderTarget() {
     return m_window;
 }
 
+void Application::setVolume(float volume) {
+    m_volume = std::clamp(volume, 0.f, 100.f);
+    m_audioCore.setVolume(m_volume);
+}
+
 void Application::stop() {
     m_running = false;
 }
@@ -64,7 +70,9 @@ void Application::setScene(std::unique_ptr<Scene> scene) {
         m_currentScene->onShutdown(m_registry);
     }
     
-    m_registry.clear(); // Ensure all entities from previous scene are removed
+    // Safety: Clear ALL state between scenes to prevent cross-contamination or stale pointers
+    m_registry.clear();
+    m_eventBus.clear();
     
     m_currentScene = std::move(scene);
     if (m_currentScene) {

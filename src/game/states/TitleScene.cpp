@@ -1,5 +1,6 @@
 #include "TitleScene.hpp"
 #include "MenuScene.hpp"
+#include "SettingsScene.hpp"
 #include "engine/core/Application.hpp"
 #include "engine/graphics/RenderSystem.hpp"
 #include <SFML/Window/Keyboard.hpp>
@@ -18,25 +19,30 @@ void TitleScene::onInitialize(entt::registry& registry) {
     if (bgTex) {
         m_backgroundSprite.emplace(*bgTex);
         sf::Vector2u texSize = bgTex->getSize();
-        m_backgroundSprite->setScale({1280.f / texSize.x, 720.f / texSize.y});
+        if (texSize.x > 0 && texSize.y > 0) {
+            m_backgroundSprite->setScale({1280.f / texSize.x, 720.f / texSize.y});
+        }
         m_backgroundSprite->setColor(sf::Color(255, 255, 255, 180)); // Slightly dim to make UI pop
     }
 
     auto font = m_app.getFontManager().get("default");
     if (font) {
         m_titleText.emplace(*font, "PULSE VECTOR");
-        m_titleText->setCharacterSize(120);
+        m_titleText->setCharacterSize(140);
         m_titleText->setFillColor(sf::Color::Cyan);
         auto titleBounds = m_titleText->getLocalBounds();
         m_titleText->setOrigin({titleBounds.size.x / 2.f, titleBounds.size.y / 2.f});
-        m_titleText->setPosition({640.f, 300.f});
+        m_titleText->setPosition({640.f, 200.f});
+    }
 
-        m_promptText.emplace(*font, "Press SPACE to Start");
-        m_promptText->setCharacterSize(30);
-        m_promptText->setFillColor(sf::Color::White);
-        auto promptBounds = m_promptText->getLocalBounds();
-        m_promptText->setOrigin({promptBounds.size.x / 2.f, promptBounds.size.y / 2.f});
-        m_promptText->setPosition({640.f, 550.f});
+    m_options.push_back({"PLAY", {}, 1.0f, 0.f});
+    m_options.push_back({"SETTINGS", {}, 1.0f, 0.f});
+    m_options.push_back({"EXIT", {}, 1.0f, 0.f});
+
+    // Load hover sound
+    auto soundBuffer = m_app.getSoundManager().get("hover");
+    if (soundBuffer) {
+        m_hoverSound.emplace(*soundBuffer);
     }
 
     // Initialize decorative circles
@@ -58,15 +64,66 @@ void TitleScene::update(entt::registry& registry, sf::Time dt) {
     m_pulsateTimer += elapsed;
 
     if (m_titleText) {
-        float tilt = std::sin(m_pulsateTimer * 2.f) * 5.f;
+        float tilt = std::sin(m_pulsateTimer * 1.5f) * 3.f;
         m_titleText->setRotation(sf::degrees(tilt));
-        float scale = 1.0f + std::sin(m_pulsateTimer * 1.5f) * 0.05f;
+        float scale = 1.0f + std::sin(m_pulsateTimer * 1.2f) * 0.03f;
         m_titleText->setScale({scale, scale});
     }
 
-    if (m_promptText) {
-        float alpha = (std::sin(m_pulsateTimer * 4.f) * 0.5f + 0.5f) * 255.f;
-        m_promptText->setFillColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(alpha)));
+    // Navigation
+    static bool upPressed = false;
+    static bool downPressed = false;
+    static bool enterPressed = false;
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
+        if (!upPressed) {
+            m_selectedIndex = (m_selectedIndex - 1 + static_cast<int>(m_options.size())) % m_options.size();
+            if (m_hoverSound) m_hoverSound->play();
+            upPressed = true;
+        }
+    } else { upPressed = false; }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
+        if (!downPressed) {
+            m_selectedIndex = (m_selectedIndex + 1) % m_options.size();
+            if (m_hoverSound) m_hoverSound->play();
+            downPressed = true;
+        }
+    } else { downPressed = false; }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
+        if (!enterPressed) {
+            auto& opt = m_options[m_selectedIndex];
+            if (opt.label == "PLAY") m_app.transitionToScene(std::make_unique<MenuScene>(m_app));
+            else if (opt.label == "SETTINGS") m_app.transitionToScene(std::make_unique<SettingsScene>(m_app));
+            else if (opt.label == "EXIT") m_app.stop();
+            enterPressed = true;
+        }
+    } else { enterPressed = false; }
+
+    // Mouse
+    auto mousePos = m_app.getInputSystem().getMousePosition();
+    for (int i = 0; i < static_cast<int>(m_options.size()); ++i) {
+        if (m_options[i].bounds.contains(mousePos)) {
+            if (m_selectedIndex != i) {
+                m_selectedIndex = i;
+                if (m_hoverSound) m_hoverSound->play();
+            }
+            if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
+                auto& opt = m_options[i];
+                if (opt.label == "PLAY") m_app.transitionToScene(std::make_unique<MenuScene>(m_app));
+                else if (opt.label == "SETTINGS") m_app.transitionToScene(std::make_unique<SettingsScene>(m_app));
+                else if (opt.label == "EXIT") m_app.stop();
+            }
+        }
+    }
+
+    // Interpolation
+    for (int i = 0; i < static_cast<int>(m_options.size()); ++i) {
+        float targetScale = (i == m_selectedIndex) ? 1.2f : 1.0f;
+        float targetOffset = (i == m_selectedIndex) ? 50.f : 0.f;
+        m_options[i].scale += (targetScale - m_options[i].scale) * 10.f * elapsed;
+        m_options[i].offset += (targetOffset - m_options[i].offset) * 10.f * elapsed;
     }
 
     // Update floating decorations
@@ -122,7 +179,42 @@ void TitleScene::render(entt::registry& registry, float interpolation) {
     Scene::render(registry, interpolation);
 
     if (m_titleText) target.draw(*m_titleText);
-    if (m_promptText) target.draw(*m_promptText);
+
+    auto font = m_app.getFontManager().get("default");
+    if (font) {
+        float startX = 200.f;
+        float startY = 400.f;
+        float spacingY = 100.f;
+        float diagonalStepX = 40.f;
+
+        for (int i = 0; i < static_cast<int>(m_options.size()); ++i) {
+            auto& opt = m_options[i];
+            float posX = startX + (i * diagonalStepX) + opt.offset;
+            float posY = startY + (i * spacingY);
+            float width = 400.f;
+            float height = 80.f;
+
+            opt.bounds = sf::FloatRect({posX, posY - height/2.f}, {width * opt.scale, height * opt.scale});
+
+            sf::RectangleShape rect({width, height});
+            rect.setOrigin({0.f, height / 2.f});
+            rect.setPosition({posX, posY});
+            rect.setScale({opt.scale, opt.scale});
+            
+            bool isSelected = (i == m_selectedIndex);
+            rect.setFillColor(isSelected ? sf::Color(0, 255, 255, 120) : sf::Color(40, 40, 60, 180));
+            rect.setOutlineThickness(isSelected ? 4.f : 1.f);
+            rect.setOutlineColor(isSelected ? sf::Color::White : sf::Color(100, 100, 100, 150));
+            target.draw(rect);
+
+            sf::Text text(*font, opt.label, static_cast<unsigned int>(40 * opt.scale));
+            auto textBounds = text.getLocalBounds();
+            text.setOrigin({0.f, textBounds.size.y / 2.f});
+            text.setPosition({posX + 40.f * opt.scale, posY});
+            text.setFillColor(isSelected ? sf::Color::White : sf::Color(200, 200, 200));
+            target.draw(text);
+        }
+    }
 }
 
 } // namespace game::states
