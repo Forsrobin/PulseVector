@@ -30,16 +30,17 @@
     - [x] GTest Integration ✅
     - [x] Unit tests for Core/Systems ✅
 - [ ] **Phase 7: Visual Polish & Feedback** (Current) 🛠️
-    - [x] Post-Process Manager (Bloom, Chromatic Aberration) ✅
+    - [x] Post-Process Manager (Bloom, Chromatic Aberration, Dimming) ✅
     - [x] Screen Shake & Hit Feedback ✅
     - [x] Audio-reactive visuals & Sample-based timing ✅
     - [x] Audio-reactive background shaders (Fragment shader) ✅
+    - [x] Procedural Wall Shaders & Gameplay Balancing ✅
     - [ ] Fancy UI animations
 
 ---
 
 ## 🛠️ Current Activity: Phase 8 - Gameplay Refinement & Performance
-Implementing spline-based movement paths for rhythm nodes and an object pooling system for particles.
+Completed background dimming transitions, procedural wall shaders, and re-balanced the S3RL-Hentai_2017 level for better readability.
 
 ## ⏭️ Up Next:
 Sliders/Tethers implementation and "Thunk" feedback system (Hitstop).

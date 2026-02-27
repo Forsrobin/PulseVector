@@ -17,6 +17,7 @@ public:
 private:
     engine::core::Application& m_app;
     sf::Vector2f m_center{640.f, 360.f};
+    sf::Shader m_wallShader;
 };
 
 } // namespace game::systems

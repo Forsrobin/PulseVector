@@ -5,6 +5,8 @@
 #include "../beatmap/Beatmap.hpp"
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/Texture.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 
 #include "engine/core/Events.hpp"
 #include "engine/utils/ObjectPool.hpp"
@@ -37,7 +39,10 @@ private:
 
     sf::RectangleShape m_timelineBar;
     sf::RectangleShape m_backgroundDim;
+    std::optional<sf::Texture> m_levelBackgroundTexture;
+    std::optional<sf::Sprite> m_levelBackgroundSprite;
     float m_smoothBass{0.f};
+    float m_levelTimer{0.f};
 
     // Restart logic
     float m_restartTimer{0.f};

@@ -3,6 +3,8 @@
 #include <sstream>
 #include <iostream>
 #include <fmt/core.h>
+#include <zip.h>
+#include <vector>
 
 namespace game::beatmap {
 
@@ -13,23 +15,96 @@ namespace {
         auto end = str.find_last_not_of(" \t\r\n");
         return str.substr(start, end - start + 1);
     }
+
+    bool isZipFile(const std::string& filepath) {
+        std::ifstream file(filepath, std::ios::binary);
+        if (!file) return false;
+        char signature[2];
+        file.read(signature, 2);
+        return signature[0] == 'P' && signature[1] == 'K';
+    }
 }
 
 std::optional<Beatmap> BeatmapParser::parse(const std::string& filepath) {
-    std::ifstream file(filepath);
-    if (!file.is_open()) {
-        fmt::print(stderr, "Failed to open beatmap file: {}\\n", filepath);
+    if (!isZipFile(filepath)) {
+        // Fallback to legacy plain text parsing if it's not a zip
+        std::ifstream file(filepath);
+        if (!file.is_open()) {
+            fmt::print(stderr, "Failed to open legacy beatmap file: {}\n", filepath);
+            return std::nullopt;
+        }
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        auto map = parseFromContent(buffer.str());
+        if (map) map->packagePath = ""; // No package
+        return map;
+    }
+
+    // Handle ZIP archive
+    int err = 0;
+    zip* z = zip_open(filepath.c_str(), 0, &err);
+    if (!z) {
+        fmt::print(stderr, "Failed to open zip archive: {}\n", filepath);
         return std::nullopt;
     }
 
+    std::optional<Beatmap> result = std::nullopt;
+    zip_int64_t num_entries = zip_get_num_entries(z, 0);
+    
+    for (zip_int64_t i = 0; i < num_entries; ++i) {
+        const char* name = zip_get_name(z, i, 0);
+        if (name && std::string(name).ends_with(".pvmap")) {
+            zip_file* f = zip_fopen_index(z, i, 0);
+            if (f) {
+                zip_stat_t st;
+                zip_stat_index(z, i, 0, &st);
+                std::string content;
+                content.resize(st.size);
+                zip_fread(f, content.data(), st.size);
+                zip_fclose(f);
+
+                result = parseFromContent(content);
+                if (result) {
+                    result->packagePath = filepath;
+                }
+                break;
+            }
+        }
+    }
+
+    zip_close(z);
+    return result;
+}
+
+std::vector<char> BeatmapParser::readFileFromZip(const std::string& archivePath, const std::string& filename) {
+    int err = 0;
+    zip* z = zip_open(archivePath.c_str(), 0, &err);
+    if (!z) return {};
+
+    std::vector<char> buffer;
+    zip_file* f = zip_fopen(z, filename.c_str(), 0);
+    if (f) {
+        zip_stat_t st;
+        zip_stat(z, filename.c_str(), 0, &st);
+        buffer.resize(st.size);
+        zip_fread(f, buffer.data(), st.size);
+        zip_fclose(f);
+    }
+
+    zip_close(z);
+    return buffer;
+}
+
+std::optional<Beatmap> BeatmapParser::parseFromContent(const std::string& content) {
     Beatmap beatmap;
+    std::istringstream stream(content);
     std::string line;
     std::string currentSection = "";
 
-    while (std::getline(file, line)) {
+    while (std::getline(stream, line)) {
         line = trim(line);
         if (line.empty() || line.starts_with("//")) {
-            continue; // Skip empty lines and comments
+            continue;
         }
 
         if (line.starts_with("[") && line.ends_with("]")) {
@@ -43,7 +118,7 @@ std::optional<Beatmap> BeatmapParser::parse(const std::string& filepath) {
             try {
                 beatmap.version = std::stoi(line);
             } catch (...) {
-                fmt::print(stderr, "Failed to parse Version: {}\\n", line);
+                fmt::print(stderr, "Failed to parse Version: {}\n", line);
             }
         } else if (currentSection == "Metadata") {
             auto colonPos = line.find(':');
@@ -54,6 +129,7 @@ std::optional<Beatmap> BeatmapParser::parse(const std::string& filepath) {
                 if (key == "Title") beatmap.title = value;
                 else if (key == "Artist") beatmap.artist = value;
                 else if (key == "AudioPath") beatmap.audioPath = value;
+                else if (key == "BackgroundPath") beatmap.backgroundPath = value;
                 else if (key == "BaseBPM") {
                     try { beatmap.baseBpm = std::stof(value); } catch (...) {}
                 } else if (key == "Offset") {
@@ -61,28 +137,25 @@ std::optional<Beatmap> BeatmapParser::parse(const std::string& filepath) {
                 }
             }
         } else if (currentSection == "Timing") {
-            // Format: timeSeconds, bpm
             std::string timeStr, bpmStr;
             if (std::getline(iss, timeStr, ',') && std::getline(iss, bpmStr)) {
                 try {
                     beatmap.timingPoints.push_back({std::stof(timeStr), std::stof(bpmStr)});
                 } catch (...) {
-                    fmt::print(stderr, "Failed to parse Timing Point: {}\\n", line);
+                    fmt::print(stderr, "Failed to parse Timing Point: {}\n", line);
                 }
             }
         } else if (currentSection == "Events") {
-             // Format: timeSeconds, type, parameters...
              std::string timeStr, typeStr, paramStr;
              if (std::getline(iss, timeStr, ',') && std::getline(iss, typeStr, ',')) {
-                 std::getline(iss, paramStr); // Read the rest
+                 std::getline(iss, paramStr);
                  try {
                      beatmap.events.push_back({std::stof(timeStr), trim(typeStr), trim(paramStr)});
                  } catch (...) {
-                     fmt::print(stderr, "Failed to parse Event: {}\\n", line);
+                     fmt::print(stderr, "Failed to parse Event: {}\n", line);
                  }
              }
         } else if (currentSection == "Nodes") {
-            // Format: timeSeconds, type(0=HitCircle, 1=Slider), x, y, direction, [duration, curveX|curveY...]
             std::string timeStr, typeStr, xStr, yStr, dirStr;
             if (std::getline(iss, timeStr, ',') && std::getline(iss, typeStr, ',') && 
                 std::getline(iss, xStr, ',') && std::getline(iss, yStr, ',') &&
@@ -113,7 +186,7 @@ std::optional<Beatmap> BeatmapParser::parse(const std::string& filepath) {
                     }
                     beatmap.nodes.push_back(node);
                 } catch (...) {
-                    fmt::print(stderr, "Failed to parse Node: {}\\n", line);
+                    fmt::print(stderr, "Failed to parse Node: {}\n", line);
                 }
             }
         }

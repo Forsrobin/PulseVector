@@ -149,13 +149,15 @@ void MenuScene::loadLevel(const std::string& mapPath) {
 
     auto map = game::beatmap::BeatmapParser::parse(mapPath);
     if (map) {
-        // Correct the audio path relative to the map
-        std::string dir = "";
-        auto lastSlash = mapPath.find_last_of("/\\\\");
-        if (lastSlash != std::string::npos) {
-            dir = mapPath.substr(0, lastSlash + 1);
+        if (map->packagePath.empty()) {
+            // Correct the audio path relative to the map
+            std::string dir = "";
+            auto lastSlash = mapPath.find_last_of("/\\\\");
+            if (lastSlash != std::string::npos) {
+                dir = mapPath.substr(0, lastSlash + 1);
+            }
+            map->audioPath = dir + map->audioPath;
         }
-        map->audioPath = dir + map->audioPath;
 
         m_app.transitionToScene(std::make_unique<MainScene>(m_app, std::move(*map)), sf::seconds(1.0f));
     } else {

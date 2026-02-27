@@ -11,6 +11,7 @@ class PulseVectorRecipe(ConanFile):
         self.requires("fmt/10.2.1") # Logging
         self.requires("nlohmann_json/3.11.3") # For potentially more complex metadata
         self.requires("gtest/1.14.0") # Testing framework
+        self.requires("libzip/1.10.1") # For level packaging
 
     def layout(self):
         cmake_layout(self)

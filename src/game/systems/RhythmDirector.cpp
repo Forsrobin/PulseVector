@@ -93,18 +93,18 @@ void RhythmDirector::update(entt::registry& registry, sf::Time dt) {
 
     // Task: Spawn rhythmic walls (Bullet Hell)
     float beatInterval = 60.f / m_beatmap.baseBpm;
-    if (currentAudioTime > m_wallTimer + beatInterval * 4.f) {
+    if (currentAudioTime > m_wallTimer + beatInterval * 8.f) {
         m_wallTimer = currentAudioTime;
         
         // Spawn a wall with a gap
         auto wallEntity = registry.create();
         float gapAngle = static_cast<float>(rand() % 360);
-        float sweep = 300.f; // 60 degree gap (360 - 300)
+        float sweep = 270.f; // 90 degree gap (360 - 270)
         
         registry.emplace<components::Wall>(wallEntity, 
             1000.f, // Start further out
             250.f,  // Faster speed to increase spatial gap
-            gapAngle + 30.f, // Start angle
+            gapAngle + 45.f, // Start angle
             sweep,
             true
         );

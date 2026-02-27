@@ -17,6 +17,7 @@ public:
     ~AudioCore();
 
     bool loadMusic(const std::string& path);
+    bool loadMusicFromMemory(std::vector<char> buffer);
     void play();
     void pause();
     void stop();
@@ -44,6 +45,7 @@ private:
     void performFFT();
 
     std::unique_ptr<sf::Music> m_music;
+    std::vector<char> m_musicBuffer;
     sf::Time m_lastPolledPosition;
     sf::Time m_smoothedPosition;
     

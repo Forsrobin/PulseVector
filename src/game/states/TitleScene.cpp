@@ -14,6 +14,7 @@ TitleScene::TitleScene(engine::core::Application& app)
 }
 
 void TitleScene::onInitialize(entt::registry& registry) {
+    m_app.getPostProcessManager().setDimAmount(1.0f);
     // Background setup
     auto bgTex = m_app.getTextureManager().get("background_1");
     if (bgTex) {

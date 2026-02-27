@@ -7,7 +7,6 @@ out vec4 fragColor;
 
 uniform sampler2D u_texture;
 uniform float threshold;
-uniform vec2 resolution;
 
 void main()
 {

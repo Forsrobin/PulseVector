@@ -9,6 +9,7 @@ find_package(SFML 3 COMPONENTS Graphics Audio Window System REQUIRED)
 find_package(EnTT REQUIRED)
 find_package(fmt REQUIRED)
 find_package(GTest REQUIRED)
+find_package(libzip REQUIRED)
 
 # --- Engine Target (Static Library) ---
 add_library(pulse-engine STATIC)
@@ -29,7 +30,7 @@ target_include_directories(pulse-game PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
     $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(pulse-game PUBLIC pulse-engine)
+target_link_libraries(pulse-game PUBLIC pulse-engine libzip::zip)
 
 # --- Main Executable ---
 add_executable(pulse-vector src/main.cpp)

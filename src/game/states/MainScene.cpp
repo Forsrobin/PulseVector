@@ -91,10 +91,33 @@ void MainScene::onInitialize(entt::registry& registry) {
     }
 
     // Load and play the music
-    if (m_app.getAudioCore().loadMusic(m_beatmap.audioPath)) {
+    bool musicLoaded = false;
+    if (!m_beatmap.packagePath.empty()) {
+        auto audioData = beatmap::BeatmapParser::readFileFromZip(m_beatmap.packagePath, m_beatmap.audioPath);
+        if (!audioData.empty()) {
+            musicLoaded = m_app.getAudioCore().loadMusicFromMemory(std::move(audioData));
+        }
+        
+        if (!m_beatmap.backgroundPath.empty()) {
+            auto bgData = beatmap::BeatmapParser::readFileFromZip(m_beatmap.packagePath, m_beatmap.backgroundPath);
+            if (!bgData.empty()) {
+                m_levelBackgroundTexture.emplace();
+                if (m_levelBackgroundTexture->loadFromMemory(bgData.data(), bgData.size())) {
+                    m_levelBackgroundSprite.emplace(*m_levelBackgroundTexture);
+                    auto texSize = m_levelBackgroundTexture->getSize();
+                    m_levelBackgroundSprite->setScale({1280.f / texSize.x, 720.f / texSize.y});
+                    m_levelBackgroundSprite->setColor(sf::Color(255, 255, 255, 150));
+                }
+            }
+        }
+    } else {
+        musicLoaded = m_app.getAudioCore().loadMusic(m_beatmap.audioPath);
+    }
+
+    if (musicLoaded) {
         m_app.getAudioCore().play();
     } else {
-        fmt::print(stderr, "Failed to load music for level: {}\\n", m_beatmap.audioPath);
+        fmt::print(stderr, "Failed to load music for level: {}\n", m_beatmap.audioPath);
     }
 
     // Create a burst of particles
@@ -123,6 +146,20 @@ void MainScene::update(entt::registry& registry, sf::Time dt) {
     Scene::update(registry, dt);
 
     float elapsed = dt.asSeconds();
+    m_levelTimer += elapsed;
+
+    // Smooth Background Dimming after 1 second
+    float targetDim = 1.0f;
+    if (m_levelTimer >= 1.0f) {
+        // Dim from 1.0 to 0.4 over 2 seconds
+        float dimProgress = std::clamp((m_levelTimer - 1.0f) / 2.0f, 0.0f, 1.0f);
+        targetDim = 1.0f - dimProgress * 0.6f;
+    }
+    m_app.getPostProcessManager().setDimAmount(targetDim);
+
+    if (m_levelBackgroundSprite) {
+        m_levelBackgroundSprite->setColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(150 * targetDim)));
+    }
 
     // Hold R to Restart logic
     if (m_isRestarting || m_isGameOver) {
@@ -163,6 +200,11 @@ void MainScene::update(entt::registry& registry, sf::Time dt) {
 
 void MainScene::render(entt::registry& registry, float interpolation) {
     auto& target = m_app.getRenderTarget();
+    
+    if (m_levelBackgroundSprite) {
+        target.draw(*m_levelBackgroundSprite);
+    }
+
     float amplitude = m_app.getAudioCore().getAmplitude();
     float bass = m_app.getAudioCore().getBassEnergy();
     const auto& fft = m_app.getAudioCore().getFftData();

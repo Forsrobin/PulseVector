@@ -16,6 +16,7 @@ Application::Application(const std::string& title, uint32_t width, uint32_t heig
 void Application::run() {
     m_running = true;
     onInitialize();
+    fmt::print("Entering main loop...\\n");
 
     while (m_running && m_window.isOpen()) {
         m_timer.update();
@@ -37,22 +38,40 @@ void Application::run() {
             m_timer.consumeFixedUpdate();
         }
 
+        // --- Render ---
+        // 1. Clear the window (visible output)
         m_window.clear(sf::Color::Black);
         
+        // 2. Clear the main off-screen texture
+        m_postProcessManager->begin();
+        
+        // 3. Draw everything into the off-screen texture
         onRender(m_timer.getInterpolationFactor());
         if (m_currentScene) {
             m_currentScene->render(m_registry, m_timer.getInterpolationFactor());
         }
 
+        // 4. Finalize the off-screen texture
+        m_postProcessManager->end();
+
+        // 5. Draw the off-screen texture to the window
+        m_postProcessManager->render(m_window);
+
+        // 6. UI Overlays (Transitions)
         renderTransition();
 
+        // 7. Push to screen
         m_window.display();
     }
 
+    fmt::print("Exiting main loop. m_running: {}, window open: {}\\n", m_running, m_window.isOpen());
     onShutdown();
 }
 
 sf::RenderTarget& Application::getRenderTarget() {
+    if (m_postProcessManager) {
+        return m_postProcessManager->getMainTexture();
+    }
     return m_window;
 }
 
@@ -70,7 +89,6 @@ void Application::setScene(std::unique_ptr<Scene> scene) {
         m_currentScene->onShutdown(m_registry);
     }
     
-    // Safety: Clear ALL state between scenes to prevent cross-contamination or stale pointers
     m_registry.clear();
     m_eventBus.clear();
     

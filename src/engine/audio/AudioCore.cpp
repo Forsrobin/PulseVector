@@ -14,10 +14,12 @@ AudioCore::~AudioCore() = default;
 
 bool AudioCore::loadMusic(const std::string& path) {
     if (!m_music->openFromFile(path)) {
-        fmt::print(stderr, "Failed to load music from {}\\n", path);
+        fmt::print(stderr, "Failed to load music from {}\n", path);
         return false;
     }
 
+    m_musicBuffer.clear(); // Not using memory buffer
+    
     m_sampleRate = m_music->getSampleRate();
     m_totalSamplesProcessed = 0;
 
@@ -26,10 +28,29 @@ bool AudioCore::loadMusic(const std::string& path) {
                                        float* output, std::size_t outputFrameCount, 
                                        unsigned int channelCount) {
         (void)outputFrameCount;
-        // Copy to output so sound plays
         std::copy(input, input + (frameCount * channelCount), output);
-        
-        // Analyze samples
+        this->processAudio(input, frameCount, channelCount);
+    });
+
+    return true;
+}
+
+bool AudioCore::loadMusicFromMemory(std::vector<char> buffer) {
+    m_musicBuffer = std::move(buffer);
+    if (!m_music->openFromMemory(m_musicBuffer.data(), m_musicBuffer.size())) {
+        fmt::print(stderr, "Failed to load music from memory\n");
+        m_musicBuffer.clear();
+        return false;
+    }
+
+    m_sampleRate = m_music->getSampleRate();
+    m_totalSamplesProcessed = 0;
+
+    m_music->setEffectProcessor([this](const float* input, std::size_t frameCount, 
+                                       float* output, std::size_t outputFrameCount, 
+                                       unsigned int channelCount) {
+        (void)outputFrameCount;
+        std::copy(input, input + (frameCount * channelCount), output);
         this->processAudio(input, frameCount, channelCount);
     });
 

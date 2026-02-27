@@ -41,6 +41,8 @@ struct Beatmap {
     std::string title;
     std::string artist;
     std::string audioPath;
+    std::string backgroundPath;
+    std::string packagePath; // Path to the .pvmap zip archive
     float baseBpm{120.0f};
     float offsetSeconds{0.0f};
 

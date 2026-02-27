@@ -6,7 +6,11 @@
 
 namespace game::systems {
 
-WallSystem::WallSystem(engine::core::Application& app) : m_app(app) {}
+WallSystem::WallSystem(engine::core::Application& app) : m_app(app) {
+    if (!m_wallShader.loadFromFile("shaders/default.vert", "shaders/wall.frag")) {
+        fmt::print(stderr, "WallSystem: Failed to load wall shader\n");
+    }
+}
 
 void WallSystem::update(entt::registry& registry, sf::Time dt) {
     float elapsed = dt.asSeconds();
@@ -57,24 +61,37 @@ void WallSystem::render(entt::registry& registry, float interpolation) {
     auto& target = m_app.getRenderTarget();
     auto view = registry.view<components::Wall>();
 
+    float amplitude = m_app.getAudioCore().getAmplitude();
+    float bass = m_app.getAudioCore().getBassEnergy();
+    static float s_time = 0.f;
+    s_time += 0.016f; // rough approximation for shader animation
+
+    m_wallShader.setUniform("time", s_time);
+    m_wallShader.setUniform("amplitude", amplitude);
+    m_wallShader.setUniform("bass", bass);
+    m_wallShader.setUniform("resolution", sf::Vector2f(1280.f, 720.f));
+
     for (auto entity : view) {
         const auto& wall = view.get<components::Wall>(entity);
         
         float wallThickness = 20.f;
-        size_t points = 20;
+        size_t points = 40; // Increased points for better quality with shaders
         sf::VertexArray va(sf::PrimitiveType::TriangleStrip, points * 2);
+
+        sf::Color wallColor = sf::Color(255, 50, 50, 180);
+        m_wallShader.setUniform("u_baseColor", sf::Glsl::Vec4(wallColor));
 
         for (size_t i = 0; i < points; ++i) {
             float angle = (wall.startAngle + (static_cast<float>(i) / (points - 1)) * wall.sweepAngle) * 3.14159f / 180.f;
             sf::Vector2f dir(std::cos(angle), std::sin(angle));
             
             va[i * 2].position = m_center + dir * wall.distance;
-            va[i * 2].color = sf::Color(255, 50, 50, 180);
+            va[i * 2].color = wallColor;
             
             va[i * 2 + 1].position = m_center + dir * (wall.distance + wallThickness);
-            va[i * 2 + 1].color = sf::Color(255, 50, 50, 180);
+            va[i * 2 + 1].color = wallColor;
         }
-        target.draw(va);
+        target.draw(va, &m_wallShader);
     }
 }
 

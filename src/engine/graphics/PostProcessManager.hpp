@@ -32,6 +32,8 @@ public:
     void setBlurStrength(float strength) { m_blurStrength = strength; }
     void setRadialBlur(sf::Vector2f center, float strength) { m_radialCenter = center; m_radialStrength = strength; }
 
+    void setDimAmount(float amount) { m_dimAmount = amount; }
+
     void updateAudioData(float amplitude, float bass, const std::vector<float>& fft);
 
     void addShake(float intensity, sf::Time duration);
@@ -42,8 +44,6 @@ private:
     bool loadShaders();
     void applyBloom();
     void applyBlur(sf::RenderTexture& input, sf::RenderTexture& output, sf::Vector2f direction);
-    void applyChromaticAberration();
-    void applyExternalBlur();
 
     sf::RenderTexture m_mainTexture;
     sf::RenderTexture m_pingPongTextures[2];
@@ -67,6 +67,7 @@ private:
     float m_blurStrength{0.f};
     float m_radialStrength{0.f};
     sf::Vector2f m_radialCenter{640.f, 360.f};
+    float m_dimAmount{1.f};
 
     float m_amplitude{0.f};
     float m_bass{0.f};
