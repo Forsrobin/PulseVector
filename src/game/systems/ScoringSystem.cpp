@@ -11,31 +11,40 @@ ScoringSystem::ScoringSystem(engine::core::EventBus& eventBus)
 }
 
 void ScoringSystem::onHitEvent(const engine::core::HitEvent& event) {
+    if (m_isGameOver) return;
+
     int points = 0;
     bool resetCombo = false;
+    float healthChange = 0.f;
 
     switch (event.rating) {
         case engine::core::HitRating::Perfect:
             points = 300;
             m_combo++;
+            healthChange = 2.f;
             break;
         case engine::core::HitRating::Great:
             points = 100;
             m_combo++;
+            healthChange = 1.f;
             break;
         case engine::core::HitRating::Good:
             points = 50;
             m_combo++;
+            healthChange = 0.5f;
             break;
         case engine::core::HitRating::Miss:
             points = 0;
             resetCombo = true;
+            healthChange = -15.f;
             break;
     }
 
     if (resetCombo) {
         m_combo = 0;
     }
+
+    m_health = std::clamp(m_health + healthChange, 0.f, 100.f);
 
     m_maxCombo = std::max(m_maxCombo, m_combo);
     
@@ -44,6 +53,11 @@ void ScoringSystem::onHitEvent(const engine::core::HitEvent& event) {
     m_score += points * multiplier;
 
     m_eventBus.publish(engine::core::ScoreUpdateEvent{m_score, m_combo, multiplier});
+
+    if (m_health <= 0.f && !m_isGameOver) {
+        m_isGameOver = true;
+        m_eventBus.publish(engine::core::GameOverEvent{m_score});
+    }
 }
 
 void ScoringSystem::update(entt::registry& registry, sf::Time dt) {

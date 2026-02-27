@@ -3,7 +3,7 @@
 ## Core Requirements
 - [x] Implement a layered rendering pipeline using `sf::VertexArray` batching.
 - [x] **Rendering Layers:**
-    - [x] Layer 1: Background (Fragment shader driven).
+    - [x] Layer 1: Background (Fragment shader driven). ✅
     - [x] Layer 2: Playfield (Spline paths/grid).
     - [x] Layer 3: Entities (Rhythm nodes).
     - [x] Layer 4: Particles (High-density geometry).
@@ -13,5 +13,5 @@
     - [x] Chromatic Aberration (Tension-driven).
 - [x] **Visual Feedback:**
     - [x] Screen shake via texture coordinate offset.
-    - [ ] Audio-reactive background shaders using FFT data.
-    - [ ] Hot-reload system for GLSL shaders.
+    - [x] Audio-reactive background shaders using FFT data. ✅
+    - [x] Hot-reload system for GLSL shaders. ✅

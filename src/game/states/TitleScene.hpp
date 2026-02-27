@@ -2,6 +2,7 @@
 
 #include "engine/core/Scene.hpp"
 #include <SFML/Graphics/Text.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 #include <optional>
 
 namespace engine::core {
@@ -19,9 +20,19 @@ public:
 
 private:
     engine::core::Application& m_app;
+    std::optional<sf::Sprite> m_backgroundSprite;
     std::optional<sf::Text> m_titleText;
     std::optional<sf::Text> m_promptText;
     float m_pulsateTimer{0.f};
+
+    struct Decoration {
+        sf::Vector2f position;
+        float radius;
+        sf::Color color;
+        float speed;
+        float phase;
+    };
+    std::vector<Decoration> m_decorations;
 };
 
 } // namespace game::states

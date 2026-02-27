@@ -1,12 +1,14 @@
 #include "ParticleSystem.hpp"
 #include "components/Transform.hpp"
 #include "components/Particle.hpp"
+#include "../utils/ObjectPool.hpp"
 #include <SFML/Graphics/RenderWindow.hpp>
 
 namespace engine::graphics {
 
-ParticleSystem::ParticleSystem(sf::RenderTarget& target)
+ParticleSystem::ParticleSystem(sf::RenderTarget& target, engine::utils::ObjectPool& pool)
     : m_target(target)
+    , m_pool(pool)
     , m_vertices(sf::PrimitiveType::Triangles) {
 }
 
@@ -16,14 +18,14 @@ void ParticleSystem::update(entt::registry& registry, sf::Time dt) {
 }
 
 void ParticleSystem::fixedUpdate(entt::registry& registry, sf::Time dt) {
-    auto view = registry.view<components::Transform, components::Particle>();
+    auto view = registry.view<components::Transform, components::Particle, engine::utils::Active>();
     for (auto entity : view) {
         auto& transform = view.get<components::Transform>(entity);
         auto& particle = view.get<components::Particle>(entity);
 
         particle.currentLifetime += dt;
         if (particle.currentLifetime >= particle.lifetime) {
-            registry.destroy(entity);
+            m_pool.release(entity);
             continue;
         }
 
@@ -34,7 +36,7 @@ void ParticleSystem::fixedUpdate(entt::registry& registry, sf::Time dt) {
 
 void ParticleSystem::render(entt::registry& registry, float interpolation) {
     (void)interpolation;
-    auto view = registry.view<components::Transform, components::Particle>();
+    auto view = registry.view<components::Transform, components::Particle, engine::utils::Active>();
     size_t numParticles = std::distance(view.begin(), view.end());
     m_vertices.resize(numParticles * 3); // Simple triangles for now
 

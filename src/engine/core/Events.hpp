@@ -42,4 +42,8 @@ struct ScoreUpdateEvent {
     int multiplier;
 };
 
+struct GameOverEvent {
+    int finalScore;
+};
+
 } // namespace engine::core

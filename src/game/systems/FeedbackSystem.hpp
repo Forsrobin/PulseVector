@@ -4,6 +4,7 @@
 #include "engine/core/EventBus.hpp"
 #include "engine/core/Events.hpp"
 #include "engine/graphics/PostProcessManager.hpp"
+#include "engine/utils/ObjectPool.hpp"
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/Font.hpp>
 #include <memory>
@@ -14,6 +15,7 @@ class FeedbackSystem : public engine::ecs::ISystem {
 public:
     FeedbackSystem(engine::core::EventBus& eventBus, 
                    engine::graphics::PostProcessManager& postProcess,
+                   engine::utils::ObjectPool& pool,
                    std::shared_ptr<sf::Texture> spriteMap,
                    std::shared_ptr<sf::Font> font);
 
@@ -26,6 +28,7 @@ private:
 
     engine::core::EventBus& m_eventBus;
     engine::graphics::PostProcessManager& m_postProcess;
+    engine::utils::ObjectPool& m_pool;
     std::shared_ptr<sf::Texture> m_spriteMap;
     std::shared_ptr<sf::Font> m_font;
     entt::registry* m_registry{nullptr};

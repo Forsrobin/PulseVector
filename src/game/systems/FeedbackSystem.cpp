@@ -12,9 +12,10 @@ namespace game::systems {
 
 FeedbackSystem::FeedbackSystem(engine::core::EventBus& eventBus, 
                                engine::graphics::PostProcessManager& postProcess,
+                               engine::utils::ObjectPool& pool,
                                std::shared_ptr<sf::Texture> spriteMap,
                                std::shared_ptr<sf::Font> font)
-    : m_eventBus(eventBus), m_postProcess(postProcess), m_spriteMap(std::move(spriteMap)), m_font(std::move(font)) {
+    : m_eventBus(eventBus), m_postProcess(postProcess), m_pool(pool), m_spriteMap(std::move(spriteMap)), m_font(std::move(font)) {
     
     m_eventBus.subscribe<engine::core::HitEvent>([this](const auto& event) {
         this->onHitEvent(event);
@@ -108,23 +109,27 @@ void FeedbackSystem::onHitEvent(const engine::core::HitEvent& event) {
         }
 
         for (int i = 0; i < particleCount; ++i) {
-            auto pEntity = m_registry->create();
-            m_registry->emplace<engine::graphics::components::Transform>(pEntity, event.position);
+            auto pEntity = m_pool.acquire();
+            
+            // Ensure components exist or are updated
+            auto& transform = m_registry->get_or_emplace<engine::graphics::components::Transform>(pEntity);
+            transform.position = event.position;
+            transform.rotation = 0.f; // Float degrees
+            transform.scale = {1.f, 1.f};
             
             float angle = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 2.0f * 3.14159f;
             float speed = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 150.f + 50.f;
             sf::Vector2f velocity(std::cos(angle) * speed, std::sin(angle) * speed);
 
-            m_registry->emplace<engine::graphics::components::Particle>(pEntity, 
-                velocity, 
-                0.f, 
-                sf::seconds(0.5f + (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 0.5f),
-                sf::Time::Zero,
-                startColor,
-                sf::Color(startColor.r, startColor.g, startColor.b, 0),
-                4.f,
-                0.f
-            );
+            auto& particle = m_registry->get_or_emplace<engine::graphics::components::Particle>(pEntity);
+            particle.velocity = velocity;
+            particle.angularVelocity = 0.f;
+            particle.lifetime = sf::seconds(0.5f + (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 0.5f);
+            particle.currentLifetime = sf::Time::Zero;
+            particle.colorStart = startColor;
+            particle.colorEnd = sf::Color(startColor.r, startColor.g, startColor.b, 0);
+            particle.sizeStart = 4.f;
+            particle.sizeEnd = 0.f;
         }
 
         if (m_font) {

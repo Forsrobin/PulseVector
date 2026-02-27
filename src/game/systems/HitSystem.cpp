@@ -32,7 +32,7 @@ void HitSystem::update(entt::registry& registry, sf::Time dt) {
 
     if (!m_audioCore.isPlaying()) return;
 
-    float currentAudioTime = m_audioCore.getPlaybackPosition().asSeconds();
+    float currentAudioTime = m_audioCore.getSampleTime().asSeconds();
 
     // Check for missed objects (passed the miss window)
     auto view = registry.view<components::HitObject>();
@@ -56,7 +56,7 @@ void HitSystem::onKeyEvent(const engine::core::KeyEvent& event) {
     if (it == m_keyToDirection.end()) return;
 
     int pressedDir = it->second;
-    float currentAudioTime = m_audioCore.getPlaybackPosition().asSeconds();
+    float currentAudioTime = m_audioCore.getSampleTime().asSeconds();
 
     // Find the closest hit object with the same direction
     entt::entity bestEntity = entt::null;

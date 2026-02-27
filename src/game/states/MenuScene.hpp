@@ -4,6 +4,7 @@
 #include "engine/core/AssetManager.hpp"
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Text.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Audio/Sound.hpp>
 #include <SFML/Audio/SoundBuffer.hpp>
 #include <vector>
@@ -34,10 +35,18 @@ private:
     void loadLevel(const std::string& mapPath);
 
     engine::core::Application& m_app;
+    std::optional<sf::Sprite> m_backgroundSprite;
     std::vector<MenuLevel> m_levels;
     std::optional<sf::Text> m_levelText;
     std::optional<sf::Sound> m_hoverSound;
+    int m_selectedIndex{0};
     int m_hoveredIndex{-1};
+
+    struct VisualState {
+        float scale{1.0f};
+        float offset{0.f};
+    };
+    std::vector<VisualState> m_visualStates;
 };
 
 } // namespace game::states

@@ -2,6 +2,7 @@
 #include <fmt/core.h>
 #include <cmath>
 #include <algorithm>
+#include <atomic>
 
 namespace engine::audio {
 
@@ -16,6 +17,9 @@ bool AudioCore::loadMusic(const std::string& path) {
         fmt::print(stderr, "Failed to load music from {}\\n", path);
         return false;
     }
+
+    m_sampleRate = m_music->getSampleRate();
+    m_totalSamplesProcessed = 0;
 
     // Attach effect processor
     m_music->setEffectProcessor([this](const float* input, std::size_t frameCount, 
@@ -37,40 +41,45 @@ void AudioCore::processAudio(const float* input, std::size_t frameCount, unsigne
     
     float sumSquares = 0.f;
     for (std::size_t i = 0; i < frameCount; ++i) {
-        // Use first channel for simplicity
         float sample = input[i * channelCount];
         sumSquares += sample * sample;
         
-        m_sampleBuffer.push_back(sample);
+        m_sampleBuffer[m_writePos] = sample;
+        m_writePos = (m_writePos + 1) % BUFFER_SIZE;
     }
 
     // RMS Amplitude
     m_amplitude = std::sqrt(sumSquares / static_cast<float>(frameCount));
-
-    // Keep buffer at reasonable size for FFT (e.g. 1024 samples)
-    if (m_sampleBuffer.size() > 1024) {
-        m_sampleBuffer.erase(m_sampleBuffer.begin(), m_sampleBuffer.begin() + (m_sampleBuffer.size() - 1024));
-    }
+    m_totalSamplesProcessed += frameCount;
 }
 
 void AudioCore::performFFT() {
     std::lock_guard lock(m_audioMutex);
-    if (m_sampleBuffer.empty()) return;
-
-    // Very crude pseudo-FFT for now until a real FFT lib is integrated or implemented
-    // Just mapping samples to bins to have some visual movement
+    
+    // Very crude pseudo-FFT for now
     size_t numBins = m_fftResult.size();
-    size_t samplesPerBin = m_sampleBuffer.size() / numBins;
+    size_t samplesPerBin = BUFFER_SIZE / numBins;
+
+    float totalBass = 0.f;
+    int bassBinCount = std::max(1, static_cast<int>(numBins / 8));
 
     for (size_t i = 0; i < numBins; ++i) {
         float binSum = 0.f;
         for (size_t j = 0; j < samplesPerBin; ++j) {
-            binSum += std::abs(m_sampleBuffer[i * samplesPerBin + j]);
+            size_t idx = (i * samplesPerBin + j) % BUFFER_SIZE;
+            binSum += std::abs(m_sampleBuffer[idx]);
         }
         float targetVal = (samplesPerBin > 0) ? (binSum / static_cast<float>(samplesPerBin)) : 0.f;
-        // Smooth transition
-        m_fftResult[i] = m_fftResult[i] * 0.8f + targetVal * 0.2f;
+        
+        // Low-pass smoothing for visual stability
+        m_fftResult[i] = m_fftResult[i] * 0.7f + targetVal * 0.3f;
+
+        if (i < static_cast<size_t>(bassBinCount)) {
+            totalBass += m_fftResult[i];
+        }
     }
+
+    m_bassEnergy = totalBass / static_cast<float>(bassBinCount);
 }
 
 void AudioCore::play() {
@@ -92,6 +101,7 @@ void AudioCore::stop() {
     m_isPlaying = false;
     m_lastPolledPosition = sf::Time::Zero;
     m_smoothedPosition = sf::Time::Zero;
+    m_totalSamplesProcessed = 0;
 }
 
 void AudioCore::setVolume(float volume) {
@@ -104,10 +114,8 @@ float AudioCore::getVolume() const {
 
 void AudioCore::update() {
     if (m_isPlaying && m_music->getStatus() == sf::SoundSource::Status::Playing) {
-        // Poll exact position from audio hardware
-        sf::Time currentPosition = m_music->getPlayingOffset();
-        m_lastPolledPosition = currentPosition;
-        m_smoothedPosition = currentPosition; 
+        m_lastPolledPosition = m_music->getPlayingOffset();
+        m_smoothedPosition = getSampleTime(); 
         
         performFFT();
     }
@@ -119,6 +127,16 @@ sf::Time AudioCore::getPlaybackPosition() const {
 
 sf::Time AudioCore::getSmoothedPosition() const {
     return m_smoothedPosition;
+}
+
+sf::Time AudioCore::getSampleTime() const {
+    if (m_sampleRate == 0) return sf::Time::Zero;
+    double seconds = static_cast<double>(m_totalSamplesProcessed.load()) / static_cast<double>(m_sampleRate);
+    return sf::seconds(static_cast<float>(seconds));
+}
+
+sf::Time AudioCore::getTotalDuration() const {
+    return m_music->getDuration();
 }
 
 bool AudioCore::isPlaying() const {

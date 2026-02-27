@@ -18,6 +18,8 @@ void PulseVectorGame::onInitialize() {
 
     // Preload basic assets
     getTextureManager().load("sprite_map", "assets/textures/sprite_map.png");
+    getTextureManager().load("background_1", "assets/textures/background_1.png");
+    getTextureManager().load("background_2", "assets/textures/background_2.png");
     getFontManager().load("default", "assets/fonts/Jersey25-Regular.ttf");
     getSoundManager().load("hover", "assets/audio/hover.mp3");
 

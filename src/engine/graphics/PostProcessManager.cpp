@@ -1,6 +1,7 @@
 #include "PostProcessManager.hpp"
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <fmt/core.h>
+#include <filesystem>
 
 namespace engine::graphics {
 
@@ -19,30 +20,94 @@ PostProcessManager::PostProcessManager(uint32_t width, uint32_t height)
     if (!m_extractTexture.resize({width, height})) {
         fmt::print(stderr, "PostProcessManager: Failed to resize extract texture\n");
     }
+    if (!m_externalBlurTexture.resize({width, height})) {
+        fmt::print(stderr, "PostProcessManager: Failed to resize external blur texture\n");
+    }
 
-    // Load shaders
+    // Initialize shader file tracking
+    m_shaderFiles = {
+        {"shaders/bloom_extract.frag", 0},
+        {"shaders/blur.frag", 0},
+        {"shaders/bloom_combine.frag", 0},
+        {"shaders/chromatic_aberration.frag", 0},
+        {"shaders/audio_reactive_bg.frag", 0}
+    };
+
+    m_shadersLoaded = loadShaders();
+}
+
+bool PostProcessManager::loadShaders() {
     bool s1 = m_bloomExtractShader.loadFromFile("shaders/default.vert", "shaders/bloom_extract.frag");
     bool s2 = m_blurShader.loadFromFile("shaders/default.vert", "shaders/blur.frag");
     bool s3 = m_bloomCombineShader.loadFromFile("shaders/default.vert", "shaders/bloom_combine.frag");
     bool s4 = m_chromaticAberrationShader.loadFromFile("shaders/default.vert", "shaders/chromatic_aberration.frag");
+    bool s5 = m_backgroundShader.loadFromFile("shaders/default.vert", "shaders/audio_reactive_bg.frag");
 
-    m_shadersLoaded = s1 && s2 && s3 && s4;
+    bool allLoaded = s1 && s2 && s3 && s4 && s5;
 
-    if (!m_shadersLoaded) {
-        fmt::print(stderr, "PostProcessManager: One or more shaders failed to load. Falling back to simple rendering.\n");
+    if (allLoaded) {
+        // Configure shaders
+        m_bloomExtractShader.setUniform("u_texture", sf::Shader::CurrentTexture);
+        m_blurShader.setUniform("u_texture", sf::Shader::CurrentTexture);
+        m_blurShader.setUniform("resolution", sf::Vector2f(static_cast<float>(m_width), static_cast<float>(m_height)));
+        m_bloomCombineShader.setUniform("u_texture", sf::Shader::CurrentTexture);
+        m_chromaticAberrationShader.setUniform("u_texture", sf::Shader::CurrentTexture);
+        m_backgroundShader.setUniform("resolution", sf::Vector2f(static_cast<float>(m_width), static_cast<float>(m_height)));
+
+        // Update timestamps
+        for (auto& file : m_shaderFiles) {
+            try {
+                file.lastModified = std::filesystem::last_write_time(file.path).time_since_epoch().count();
+            } catch (...) {}
+        }
     }
 
-    // Configure shaders
-    m_bloomExtractShader.setUniform("u_texture", sf::Shader::CurrentTexture);
-    m_blurShader.setUniform("u_texture", sf::Shader::CurrentTexture);
-    m_blurShader.setUniform("resolution", sf::Vector2f(static_cast<float>(width), static_cast<float>(height)));
-    
-    m_bloomCombineShader.setUniform("u_texture", sf::Shader::CurrentTexture);
-    
-    m_chromaticAberrationShader.setUniform("u_texture", sf::Shader::CurrentTexture);
+    return allLoaded;
+}
+
+void PostProcessManager::checkShaderReload() {
+    bool needsReload = false;
+    for (auto& file : m_shaderFiles) {
+        try {
+            if (std::filesystem::exists(file.path)) {
+                auto currentMod = std::filesystem::last_write_time(file.path).time_since_epoch().count();
+                if (currentMod > file.lastModified) {
+                    needsReload = true;
+                    break;
+                }
+            }
+        } catch (...) {}
+    }
+
+    if (needsReload) {
+        fmt::print("PostProcessManager: Shader change detected! Reloading...\n");
+        if (loadShaders()) {
+            fmt::print("PostProcessManager: Shaders reloaded successfully.\n");
+            m_shadersLoaded = true;
+        } else {
+            fmt::print(stderr, "PostProcessManager: Shader reload failed.\n");
+        }
+    }
+}
+
+void PostProcessManager::updateAudioData(float amplitude, float bass, const std::vector<float>& fft) {
+    m_amplitude = amplitude;
+    m_bass = bass;
+    for (size_t i = 0; i < 64 && i < fft.size(); ++i) {
+        m_fft[i] = fft[i];
+    }
 }
 
 void PostProcessManager::update(sf::Time dt) {
+    m_time += dt.asSeconds();
+    
+    // Check for shader reloads every 0.5s to avoid excessive file I/O
+    m_reloadTimer += dt;
+    if (m_reloadTimer >= sf::seconds(0.5f)) {
+        checkShaderReload();
+        m_reloadTimer = sf::Time::Zero;
+    }
+
     if (m_shakeRemaining > sf::Time::Zero) {
         m_shakeRemaining -= dt;
         if (m_shakeRemaining <= sf::Time::Zero) {
@@ -63,7 +128,17 @@ void PostProcessManager::addShake(float intensity, sf::Time duration) {
 }
 
 void PostProcessManager::begin() {
-    m_mainTexture.clear(sf::Color(20, 20, 40)); // Dark navy background
+    m_mainTexture.clear(sf::Color(20, 20, 40)); // Dark navy background fallback
+
+    if (m_shadersLoaded) {
+        m_backgroundShader.setUniform("time", m_time);
+        m_backgroundShader.setUniform("amplitude", m_amplitude);
+        m_backgroundShader.setUniform("bass", m_bass);
+        m_backgroundShader.setUniformArray("fft", m_fft, 64);
+
+        sf::RectangleShape quad({static_cast<float>(m_width), static_cast<float>(m_height)});
+        m_mainTexture.draw(quad, &m_backgroundShader);
+    }
 }
 
 void PostProcessManager::end() {
@@ -71,39 +146,68 @@ void PostProcessManager::end() {
 }
 
 void PostProcessManager::render(sf::RenderTarget& target) {
-    sf::Sprite mainSprite(m_mainTexture.getTexture());
-    mainSprite.setPosition(m_shakeOffset);
-
-    if (m_shadersLoaded) {
-        if (m_bloomEnabled) {
-            applyBloom();
-            m_bloomCombineShader.setUniform("bloomTexture", m_pingPongTextures[0].getTexture());
-            m_bloomCombineShader.setUniform("intensity", m_bloomIntensity);
-            
-            if (m_chromaticEnabled) {
-                m_extractTexture.clear(sf::Color::Transparent);
-                m_extractTexture.draw(mainSprite, &m_bloomCombineShader);
-                m_extractTexture.display();
-                
-                applyChromaticAberration();
-                sf::Sprite finalSprite(m_pingPongTextures[1].getTexture());
-                finalSprite.setPosition(m_shakeOffset);
-                target.draw(finalSprite);
-            } else {
-                mainSprite.setPosition(m_shakeOffset);
-                target.draw(mainSprite, &m_bloomCombineShader);
-            }
-        } else if (m_chromaticEnabled) {
-            applyChromaticAberration();
-            sf::Sprite finalSprite(m_pingPongTextures[1].getTexture());
-            finalSprite.setPosition(m_shakeOffset);
-            target.draw(finalSprite);
-        } else {
-            target.draw(mainSprite);
-        }
-    } else {
+    if (!m_shadersLoaded) {
+        sf::Sprite mainSprite(m_mainTexture.getTexture());
+        mainSprite.setPosition(m_shakeOffset);
         target.draw(mainSprite);
+        return;
     }
+
+    // Pipeline: Bloom -> Chromatic Aberration -> External Blur (Restart)
+
+    // 1. Bloom
+    if (m_bloomEnabled) {
+        applyBloom();
+        m_bloomCombineShader.setUniform("bloomTexture", m_pingPongTextures[0].getTexture());
+        m_bloomCombineShader.setUniform("intensity", m_bloomIntensity);
+        
+        m_extractTexture.clear(sf::Color::Transparent);
+        sf::Sprite mainSprite(m_mainTexture.getTexture());
+        m_extractTexture.draw(mainSprite, &m_bloomCombineShader);
+        m_extractTexture.display();
+    } else {
+        m_extractTexture.clear(sf::Color::Transparent);
+        sf::Sprite mainSprite(m_mainTexture.getTexture());
+        m_extractTexture.draw(mainSprite);
+        m_extractTexture.display();
+    }
+
+    // 2. Chromatic Aberration
+    if (m_chromaticEnabled) {
+        applyChromaticAberration();
+    } else {
+        m_pingPongTextures[1].clear(sf::Color::Transparent);
+        sf::Sprite sprite(m_extractTexture.getTexture());
+        m_pingPongTextures[1].draw(sprite);
+        m_pingPongTextures[1].display();
+    }
+
+    // 3. External Blur (for Restart)
+    if (m_blurStrength > 0.01f) {
+        applyExternalBlur();
+        sf::Sprite finalSprite(m_externalBlurTexture.getTexture());
+        finalSprite.setPosition(m_shakeOffset);
+        target.draw(finalSprite);
+    } else {
+        sf::Sprite finalSprite(m_pingPongTextures[1].getTexture());
+        finalSprite.setPosition(m_shakeOffset);
+        target.draw(finalSprite);
+    }
+}
+
+void PostProcessManager::applyExternalBlur() {
+    // We use ping-pong 0 as intermediate
+    m_blurShader.setUniform("direction", sf::Vector2f(m_blurStrength / static_cast<float>(m_width), 0.f));
+    m_pingPongTextures[0].clear(sf::Color::Transparent);
+    sf::Sprite s1(m_pingPongTextures[1].getTexture());
+    m_pingPongTextures[0].draw(s1, &m_blurShader);
+    m_pingPongTextures[0].display();
+
+    m_blurShader.setUniform("direction", sf::Vector2f(0.f, m_blurStrength / static_cast<float>(m_height)));
+    m_externalBlurTexture.clear(sf::Color::Transparent);
+    sf::Sprite s2(m_pingPongTextures[0].getTexture());
+    m_externalBlurTexture.draw(s2, &m_blurShader);
+    m_externalBlurTexture.display();
 }
 
 void PostProcessManager::applyBloom() {

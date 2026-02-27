@@ -32,12 +32,14 @@
 - [ ] **Phase 7: Visual Polish & Feedback** (Current) 🛠️
     - [x] Post-Process Manager (Bloom, Chromatic Aberration) ✅
     - [x] Screen Shake & Hit Feedback ✅
-    - [ ] Audio-reactive visuals
+    - [x] Audio-reactive visuals & Sample-based timing ✅
+    - [x] Audio-reactive background shaders (Fragment shader) ✅
+    - [ ] Fancy UI animations
 
 ---
 
-## 🛠️ Current Activity: Phase 7 - Visual Polish
-Implemented Post-Process Manager with Bloom and Chromatic Aberration.
+## 🛠️ Current Activity: Phase 8 - Gameplay Refinement & Performance
+Implementing spline-based movement paths for rhythm nodes and an object pooling system for particles.
 
 ## ⏭️ Up Next:
-Screen Shake and more gameplay-driven visual feedback.
+Sliders/Tethers implementation and "Thunk" feedback system (Hitstop).

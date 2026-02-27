@@ -24,6 +24,8 @@ private:
     int m_score{0};
     int m_combo{0};
     int m_maxCombo{0};
+    float m_health{100.f};
+    bool m_isGameOver{false};
 };
 
 } // namespace game::systems

@@ -22,7 +22,7 @@ void RhythmDirector::update(entt::registry& registry, sf::Time dt) {
         return;
     }
 
-    float currentAudioTime = m_audioCore.getPlaybackPosition().asSeconds();
+    float currentAudioTime = m_audioCore.getSampleTime().asSeconds();
 
     // Spawn nodes ahead of time
     while (m_nextNodeIndex < m_beatmap.nodes.size()) {
@@ -36,8 +36,38 @@ void RhythmDirector::update(entt::registry& registry, sf::Time dt) {
             
             registry.emplace<components::HitObject>(entity, node.timeSeconds, spawnTime, node.type, node.direction);
 
-            // Add approach component for scaling animation
-            registry.emplace<components::Approach>(entity, spawnTime, node.timeSeconds);
+            // Add approach component for scaling and spline animation
+            auto& approach = registry.emplace<components::Approach>(entity, spawnTime, node.timeSeconds);
+            
+            // Generate path points
+            if (!node.curvePoints.empty()) {
+                for (const auto& p : node.curvePoints) {
+                    approach.pathPoints.push_back({p.first, p.second});
+                }
+            } else {
+                // Default path: Spawn from off-screen towards target
+                sf::Vector2f targetPos(node.x, node.y);
+                sf::Vector2f spawnPos = targetPos;
+                
+                // Offset spawn position based on direction
+                float offset = 1000.f;
+                switch (node.direction) {
+                    case 0: spawnPos.y -= offset; break; // Up -> comes from top
+                    case 1: spawnPos.x += offset; break; // Right -> comes from right
+                    case 2: spawnPos.y += offset; break; // Down -> comes from bottom
+                    case 3: spawnPos.x -= offset; break; // Left -> comes from left
+                }
+
+                // Simple 3-point spline for some curve feel even on defaults
+                approach.pathPoints.push_back(spawnPos);
+                // Mid point with slight offset for "swing"
+                sf::Vector2f mid = (spawnPos + targetPos) * 0.5f;
+                if (node.direction == 0 || node.direction == 2) mid.x += 100.f;
+                else mid.y += 100.f;
+                
+                approach.pathPoints.push_back(mid);
+                approach.pathPoints.push_back(targetPos);
+            }
 
             // Visual representation using the sprite map
             if (m_spriteMap) {

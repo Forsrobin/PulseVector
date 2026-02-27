@@ -9,8 +9,9 @@ TEST(FeedbackSystemTest, SpawnsOnHit) {
     engine::core::EventBus eventBus;
     entt::registry registry;
     engine::graphics::PostProcessManager postProcess(1280, 720);
+    engine::utils::ObjectPool pool(registry);
     
-    game::systems::FeedbackSystem feedbackSystem(eventBus, postProcess, nullptr, nullptr);
+    game::systems::FeedbackSystem feedbackSystem(eventBus, postProcess, pool, nullptr, nullptr);
     
     // We need to call update once to set the registry pointer in my current implementation
     feedbackSystem.update(registry, sf::Time::Zero);
@@ -25,8 +26,9 @@ TEST(FeedbackSystemTest, CleanupOnExpiredLife) {
     engine::core::EventBus eventBus;
     entt::registry registry;
     engine::graphics::PostProcessManager postProcess(1280, 720);
+    engine::utils::ObjectPool pool(registry);
     
-    game::systems::FeedbackSystem feedbackSystem(eventBus, postProcess, nullptr, nullptr);
+    game::systems::FeedbackSystem feedbackSystem(eventBus, postProcess, pool, nullptr, nullptr);
     feedbackSystem.update(registry, sf::Time::Zero);
     
     eventBus.publish(engine::core::HitEvent{engine::core::HitRating::Perfect, 0.0f, entt::null, {100.f, 100.f}});

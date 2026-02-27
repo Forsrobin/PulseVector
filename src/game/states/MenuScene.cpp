@@ -12,8 +12,14 @@ MenuScene::MenuScene(engine::core::Application& app)
 }
 
 void MenuScene::onInitialize(entt::registry& registry) {
-    fmt::print("Menu Scene Initialized.\\n");
-    addSystem(std::make_unique<engine::graphics::RenderSystem>(m_app.getRenderTarget()));
+    // Load background
+    auto bgTex = m_app.getTextureManager().get("background_2");
+    if (bgTex) {
+        m_backgroundSprite.emplace(*bgTex);
+        sf::Vector2u texSize = bgTex->getSize();
+        m_backgroundSprite->setScale({1280.f / texSize.x, 720.f / texSize.y});
+        m_backgroundSprite->setColor(sf::Color(255, 255, 255, 120)); // Dim for menu readability
+    }
 
     // Load font
     auto font = m_app.getFontManager().get("default");
@@ -31,36 +37,76 @@ void MenuScene::onInitialize(entt::registry& registry) {
 
     // Define dummy levels for testing
     m_levels.clear();
-    m_levels.push_back({"Hentai 2017", "S3RL", "levels/S3RL-Hentai_2017.pvmap", sf::FloatRect({400.f, 200.f}, {480.f, 60.f})});
-    // Add some more mock levels to fill the menu
-    m_levels.push_back({"MOCK SONG 1", "Artist A", "levels/nonexistent1.pvmap", sf::FloatRect({400.f, 280.f}, {480.f, 60.f})});
-    m_levels.push_back({"MOCK SONG 2", "Artist B", "levels/nonexistent2.pvmap", sf::FloatRect({400.f, 360.f}, {480.f, 60.f})});
-    m_levels.push_back({"MOCK SONG 3", "Artist C", "levels/nonexistent3.pvmap", sf::FloatRect({400.f, 440.f}, {480.f, 60.f})});
+    m_levels.push_back({"Hentai 2017", "S3RL", "levels/S3RL-Hentai_2017.pvmap", {}});
+    m_levels.push_back({"MOCK SONG 1", "Artist A", "levels/nonexistent1.pvmap", {}});
+    m_levels.push_back({"MOCK SONG 2", "Artist B", "levels/nonexistent2.pvmap", {}});
+    m_levels.push_back({"MOCK SONG 3", "Artist C", "levels/nonexistent3.pvmap", {}});
+    m_levels.push_back({"MOCK SONG 4", "Artist D", "levels/nonexistent4.pvmap", {}});
+
+    m_visualStates.resize(m_levels.size());
 }
 
 void MenuScene::update(entt::registry& registry, sf::Time dt) {
     Scene::update(registry, dt);
 
-    auto mousePos = m_app.getInputSystem().getMousePosition();
-    int newHoverIndex = -1;
+    float elapsed = dt.asSeconds();
 
+    // Keyboard Navigation
+    static bool upPressed = false;
+    static bool downPressed = false;
+    static bool enterPressed = false;
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) {
+        if (!upPressed) {
+            m_selectedIndex = (m_selectedIndex - 1 + static_cast<int>(m_levels.size())) % m_levels.size();
+            if (m_hoverSound) m_hoverSound->play();
+            upPressed = true;
+        }
+    } else {
+        upPressed = false;
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) {
+        if (!downPressed) {
+            m_selectedIndex = (m_selectedIndex + 1) % m_levels.size();
+            if (m_hoverSound) m_hoverSound->play();
+            downPressed = true;
+        }
+    } else {
+        downPressed = false;
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter)) {
+        if (!enterPressed) {
+            loadLevel(m_levels[m_selectedIndex].mapPath);
+            enterPressed = true;
+        }
+    } else {
+        enterPressed = false;
+    }
+
+    // Mouse Interaction
+    auto mousePos = m_app.getInputSystem().getMousePosition();
     for (int i = 0; i < static_cast<int>(m_levels.size()); ++i) {
         if (m_levels[i].bounds.contains(mousePos)) {
-            newHoverIndex = i;
+            if (m_selectedIndex != i) {
+                m_selectedIndex = i;
+                if (m_hoverSound) m_hoverSound->play();
+            }
+            if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
+                loadLevel(m_levels[i].mapPath);
+            }
             break;
         }
     }
 
-    if (newHoverIndex != m_hoveredIndex) {
-        if (newHoverIndex != -1 && m_hoverSound) {
-            m_hoverSound->setPitch(1.0f + (static_cast<float>(newHoverIndex) * 0.1f));
-            m_hoverSound->play();
-        }
-        m_hoveredIndex = newHoverIndex;
-    }
+    // Smooth Visual Interpolation
+    for (int i = 0; i < static_cast<int>(m_visualStates.size()); ++i) {
+        float targetScale = (i == m_selectedIndex) ? 1.15f : 1.0f;
+        float targetOffset = (i == m_selectedIndex) ? 40.f : 0.f;
 
-    if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && m_hoveredIndex != -1) {
-        loadLevel(m_levels[m_hoveredIndex].mapPath);
+        m_visualStates[i].scale += (targetScale - m_visualStates[i].scale) * 15.f * elapsed;
+        m_visualStates[i].offset += (targetOffset - m_visualStates[i].offset) * 15.f * elapsed;
     }
 }
 
@@ -82,42 +128,64 @@ void MenuScene::loadLevel(const std::string& mapPath) {
 }
 
 void MenuScene::render(entt::registry& registry, float interpolation) {
-    Scene::render(registry, interpolation);
-
     auto& target = m_app.getRenderTarget();
+    if (m_backgroundSprite) {
+        target.draw(*m_backgroundSprite);
+    }
+
+    Scene::render(registry, interpolation);
     auto font = m_app.getFontManager().get("default");
 
     if (font) {
-        sf::Text title(*font, "SELECT SONG", 60);
-        title.setFillColor(sf::Color::Yellow);
+        sf::Text title(*font, "SONG SELECT", 70);
+        title.setFillColor(sf::Color::Cyan);
         auto titleBounds = title.getLocalBounds();
         title.setOrigin({titleBounds.size.x / 2.f, titleBounds.size.y / 2.f});
-        title.setPosition({640.f, 100.f});
+        title.setPosition({640.f, 80.f});
         target.draw(title);
     }
 
     if (!m_levelText) return;
 
+    float startX = 200.f;
+    float startY = 220.f;
+    float spacingY = 85.f;
+    float diagonalStepX = 30.f;
+
     for (int i = 0; i < static_cast<int>(m_levels.size()); ++i) {
-        const auto& level = m_levels[i];
+        auto& level = m_levels[i];
+        const auto& visual = m_visualStates[i];
+
+        float posX = startX + (i * diagonalStepX) + visual.offset;
+        float posY = startY + (i * spacingY);
+        float width = 600.f;
+        float height = 70.f;
+
+        // Update bounds for mouse interaction
+        level.bounds = sf::FloatRect({posX, posY}, {width * visual.scale, height * visual.scale});
+
+        sf::RectangleShape rect({width, height});
+        rect.setOrigin({0.f, height / 2.f});
+        rect.setPosition({posX, posY});
+        rect.setScale({visual.scale, visual.scale});
         
-        // Background for item
-        sf::RectangleShape rect(level.bounds.size);
-        rect.setPosition(level.bounds.position);
-        rect.setFillColor(i == m_hoveredIndex ? sf::Color(60, 60, 100) : sf::Color(40, 40, 60));
-        rect.setOutlineThickness(2.f);
-        rect.setOutlineColor(i == m_hoveredIndex ? sf::Color::Cyan : sf::Color(100, 100, 100));
+        bool isSelected = (i == m_selectedIndex);
+        rect.setFillColor(isSelected ? sf::Color(0, 255, 255, 100) : sf::Color(40, 40, 60, 180));
+        rect.setOutlineThickness(isSelected ? 3.f : 1.f);
+        rect.setOutlineColor(isSelected ? sf::Color::White : sf::Color(100, 100, 100, 150));
+        
         target.draw(rect);
 
         m_levelText->setString(fmt::format("{} - {}", level.artist, level.title));
+        m_levelText->setCharacterSize(static_cast<unsigned int>(32 * visual.scale));
         auto textBounds = m_levelText->getLocalBounds();
         m_levelText->setOrigin({0.f, textBounds.size.y / 2.f});
-        m_levelText->setPosition({level.bounds.position.x + 20.f, level.bounds.position.y + level.bounds.size.y / 2.f});
+        m_levelText->setPosition({posX + 30.f * visual.scale, posY});
         
-        if (i == m_hoveredIndex) {
+        if (isSelected) {
             m_levelText->setFillColor(sf::Color::White);
         } else {
-            m_levelText->setFillColor(sf::Color(200, 200, 200));
+            m_levelText->setFillColor(sf::Color(180, 180, 180));
         }
         
         target.draw(*m_levelText);

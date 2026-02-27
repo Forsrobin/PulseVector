@@ -29,21 +29,31 @@ public:
     void setChromaticAberrationEnabled(bool enabled) { m_chromaticEnabled = enabled; }
     void setChromaticAberrationAmount(float amount) { m_chromaticAmount = amount; }
 
+    void setBlurStrength(float strength) { m_blurStrength = strength; }
+
+    void updateAudioData(float amplitude, float bass, const std::vector<float>& fft);
+
     void addShake(float intensity, sf::Time duration);
 
+    void checkShaderReload();
+
 private:
+    bool loadShaders();
     void applyBloom();
     void applyBlur(sf::RenderTexture& input, sf::RenderTexture& output, sf::Vector2f direction);
     void applyChromaticAberration();
+    void applyExternalBlur();
 
     sf::RenderTexture m_mainTexture;
     sf::RenderTexture m_pingPongTextures[2];
     sf::RenderTexture m_extractTexture;
+    sf::RenderTexture m_externalBlurTexture;
 
     sf::Shader m_bloomExtractShader;
     sf::Shader m_blurShader;
     sf::Shader m_bloomCombineShader;
     sf::Shader m_chromaticAberrationShader;
+    sf::Shader m_backgroundShader;
 
     bool m_bloomEnabled{true};
     float m_bloomThreshold{0.7f};
@@ -51,6 +61,13 @@ private:
 
     bool m_chromaticEnabled{true};
     float m_chromaticAmount{0.005f};
+
+    float m_blurStrength{0.f};
+
+    float m_amplitude{0.f};
+    float m_bass{0.f};
+    float m_fft[64]{0.f};
+    float m_time{0.f};
 
     float m_shakeIntensity{0.f};
     sf::Time m_shakeDuration{sf::Time::Zero};
@@ -60,6 +77,13 @@ private:
     uint32_t m_width;
     uint32_t m_height;
     bool m_shadersLoaded{false};
+
+    struct ShaderFileInfo {
+        std::string path;
+        long long lastModified{0};
+    };
+    std::vector<ShaderFileInfo> m_shaderFiles;
+    sf::Time m_reloadTimer{sf::Time::Zero};
 };
 
 } // namespace engine::graphics

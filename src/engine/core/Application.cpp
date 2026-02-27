@@ -63,6 +63,9 @@ void Application::setScene(std::unique_ptr<Scene> scene) {
     if (m_currentScene) {
         m_currentScene->onShutdown(m_registry);
     }
+    
+    m_registry.clear(); // Ensure all entities from previous scene are removed
+    
     m_currentScene = std::move(scene);
     if (m_currentScene) {
         m_currentScene->onInitialize(m_registry);
