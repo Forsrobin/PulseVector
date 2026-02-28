@@ -2,6 +2,7 @@
 #include "MainScene.hpp"
 #include "TitleScene.hpp"
 #include "SettingsScene.hpp"
+#include "LevelEditorMenuScene.hpp"
 #include "engine/core/Application.hpp"
 #include "engine/graphics/RenderSystem.hpp"
 #include "../beatmap/BeatmapParser.hpp"
@@ -43,7 +44,7 @@ void MenuScene::onInitialize(entt::registry& registry) {
     m_levels.clear();
     m_levels.push_back({"Hentai 2017", "S3RL", "levels/S3RL-Hentai_2017.pvmap", {}});
     m_levels.push_back({"MOCK SONG 1", "Artist A", "levels/nonexistent1.pvmap", {}});
-    m_levels.push_back({"MOCK SONG 2", "Artist B", "levels/nonexistent2.pvmap", {}});
+    m_levels.push_back({"LEVEL EDITOR", "Create & Edit", "LEVEL_EDITOR", {}});
     m_levels.push_back({"SETTINGS", "Configure", "SETTINGS", {}});
 
     m_visualStates.resize(m_levels.size());
@@ -144,6 +145,11 @@ void MenuScene::update(entt::registry& registry, sf::Time dt) {
 void MenuScene::loadLevel(const std::string& mapPath) {
     if (mapPath == "SETTINGS") {
         m_app.transitionToScene(std::make_unique<SettingsScene>(m_app));
+        return;
+    }
+
+    if (mapPath == "LEVEL_EDITOR") {
+        m_app.transitionToScene(std::make_unique<LevelEditorMenuScene>(m_app));
         return;
     }
 

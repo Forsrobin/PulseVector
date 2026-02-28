@@ -125,6 +125,15 @@ void AudioCore::stop() {
     m_totalSamplesProcessed = 0;
 }
 
+void AudioCore::setPlaybackPosition(sf::Time position) {
+    m_music->setPlayingOffset(position);
+    m_lastPolledPosition = position;
+    m_smoothedPosition = position;
+    
+    // Reset sample counter based on new position
+    m_totalSamplesProcessed = static_cast<uint64_t>(position.asSeconds() * m_sampleRate);
+}
+
 void AudioCore::setVolume(float volume) {
     m_music->setVolume(volume);
 }

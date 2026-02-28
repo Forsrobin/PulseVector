@@ -4,6 +4,7 @@
 #include <memory>
 #include <entt/entt.hpp>
 #include <SFML/System/Time.hpp>
+#include <SFML/Window/Event.hpp>
 #include "../ecs/System.hpp"
 
 namespace engine::core {
@@ -14,6 +15,8 @@ public:
 
     virtual void onInitialize(entt::registry& registry) { (void)registry; }
     virtual void onShutdown(entt::registry& registry) { (void)registry; }
+
+    virtual void handleEvent(const sf::Event& event) { (void)event; }
 
     void addSystem(std::unique_ptr<engine::ecs::ISystem> system);
 

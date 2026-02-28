@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <SFML/System/Vector2.hpp>
 
 namespace game::beatmap {
 
@@ -18,7 +19,8 @@ struct Event {
 
 enum class NodeType {
     HitCircle,
-    Slider
+    Slider,
+    Wall
 };
 
 struct Node {
@@ -29,7 +31,7 @@ struct Node {
     int direction{0}; // 0: Up, 1: Right, 2: Down, 3: Left
     
     // Slider specific
-    std::vector<std::pair<float, float>> curvePoints;
+    std::vector<sf::Vector2f> curvePoints;
     float durationSeconds;
 };
 

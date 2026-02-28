@@ -39,8 +39,9 @@ void RhythmDirector::update(entt::registry& registry, sf::Time dt) {
             if (node.type == beatmap::NodeType::Slider) {
                 hitObj.durationSeconds = node.durationSeconds;
                 for (const auto& p : node.curvePoints) {
-                    hitObj.sliderPoints.push_back({p.first, p.second});
+                    hitObj.sliderPoints.push_back(p);
                 }
+
             }
 
             // Add approach component for scaling and spline animation
@@ -49,7 +50,7 @@ void RhythmDirector::update(entt::registry& registry, sf::Time dt) {
             // Generate path points
             if (!node.curvePoints.empty()) {
                 for (const auto& p : node.curvePoints) {
-                    approach.pathPoints.push_back({p.first, p.second});
+                    approach.pathPoints.push_back(p);
                 }
             } else {
                 // Default path: Spawn from off-screen towards target

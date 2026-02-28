@@ -144,6 +144,9 @@ void Application::processEvents() {
             m_running = false;
         } else {
             m_inputSystem.processEvent(*event, m_window);
+            if (m_currentScene) {
+                m_currentScene->handleEvent(*event);
+            }
         }
     }
 }

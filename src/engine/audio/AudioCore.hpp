@@ -22,6 +22,7 @@ public:
     void pause();
     void stop();
 
+    void setPlaybackPosition(sf::Time position);
     void setVolume(float volume);
     [[nodiscard]] float getVolume() const;
 
